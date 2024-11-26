@@ -13,6 +13,9 @@ export class ServerConnection {
     @observable
     accessor isConnected: boolean = false;
 
+    @observable
+    accessor latestMessage: string = '';
+
     private constructor(url: string, port: number) {
         this._url = url;
         this._port = port;
@@ -21,7 +24,7 @@ export class ServerConnection {
             this._port,
             this.onConnect.bind(this),
             this.onDisconnect.bind(this),
-            this.onMessage.bind(this)
+            this._onMessage.bind(this)
         );
     }
 
@@ -47,6 +50,11 @@ export class ServerConnection {
         this._connection.connect();
     }
 
+    @action
+    setLatestMessage(message: string) {
+        this.latestMessage = message;
+    }
+
     sendMessage(message: string) {
         try {
             this._connection.sendMessage(message);
@@ -55,7 +63,7 @@ export class ServerConnection {
         }
     }
 
-    onMessage(message: WebSocketMessageEvent) {
-
+    private _onMessage(message: WebSocketMessageEvent) {
+        this.setLatestMessage(message.data);
     }
 }

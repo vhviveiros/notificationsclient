@@ -3,6 +3,8 @@ import {View, Button, Text, Typography} from 'react-native-ui-lib';
 import {action, observable} from 'mobx';
 import {observer} from 'mobx-react';
 import {ServerConnection} from './services/ServerConnection.ts';
+import {useServerMessage} from './hooks/Connection.ts';
+import {Notification, Notifications} from 'react-native-notifications';
 
 Typography.loadTypographies({
     h1: {fontSize: 58, fontWeight: '300', lineHeight: 80},
@@ -12,10 +14,25 @@ Typography.loadTypographies({
 export default function App(): JSX.Element {
     const test = new CountTest();
     const connection = ServerConnection.instance;
+    const message = useServerMessage();
+
+    const showNotifications = () => {
+        // Notifications.registerRemoteNotifications();
+        //
+        Notifications.events().registerNotificationReceivedForeground((notification: Notification, completion) => {
+            console.log(`Notification received in foreground: ${notification.title} : ${notification.body}`);
+            completion({alert: false, sound: false, badge: false});
+        });
+        //
+        // Notifications.events().registerNotificationOpened((notification: Notification, completion) => {
+        //     console.log(`Notification opened: ${notification.payload}`);
+        //     completion();
+        // });
+    };
 
     const MyComponent = observer(({}) => (
         <View style={styles.container}>
-            <View style={styles.display}><Text h1>{test.count}</Text></View>
+            <View style={styles.display}><Text h1>{message}</Text></View>
             <Button
                 style={styles.btn}
                 borderRadius={0}
@@ -28,10 +45,10 @@ export default function App(): JSX.Element {
             <Button
                 style={styles.btn}
                 borderRadius={0}
-                label={'Test'}
+                label={'Notify'}
                 round={false}
                 onPress={() => {
-                    test.increment();
+                    showNotifications();
                 }}
             />
             <Button
@@ -77,6 +94,7 @@ const styles = StyleSheet.create({
         width: '100%',
         backgroundColor: 'red',
         alignItems: 'center',
+        maxHeight: 400,
     },
     container: {
         // flex: 1,
