@@ -1,12 +1,12 @@
 import {useEffect, useState} from 'react';
-import {ServerConnection} from '../services/ServerConnection';
 import {autorun} from 'mobx';
+import PersistentService from '../services/PersistentService.ts';
 
 export const useServerMessage = () => {
     const [message, setMessage] = useState<string>('');
 
     useEffect(() => {
-        const connection = ServerConnection.instance;
+        const connection = PersistentService.instance.connectionService;
 
         // Subscribe to changes in `latestMessage`
         const dispose = autorun(() => {

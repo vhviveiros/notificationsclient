@@ -1,10 +1,10 @@
-import React, {SafeAreaView, StyleSheet} from 'react-native';
+import {SafeAreaView, ScrollView, StyleSheet} from 'react-native';
+import React from 'react';
 import {View, Button, Text, Typography} from 'react-native-ui-lib';
-import {action, observable} from 'mobx';
 import {observer} from 'mobx-react';
-import {ServerConnection} from './services/ServerConnection.ts';
-import {useServerMessage} from './hooks/Connection.ts';
-import {Notification, Notifications} from 'react-native-notifications';
+import {useServerMessage} from './hooks/useConnection.ts';
+import {ServicesProvider, useServices} from './components/ServicesContext.tsx';
+import NotificationsService from './services/NotificationsService.ts';
 
 Typography.loadTypographies({
     h1: {fontSize: 58, fontWeight: '300', lineHeight: 80},
@@ -12,82 +12,65 @@ Typography.loadTypographies({
 });
 
 export default function App(): JSX.Element {
-    const test = new CountTest();
-    const connection = ServerConnection.instance;
-    const message = useServerMessage();
-
-    const showNotifications = () => {
-        // Notifications.registerRemoteNotifications();
-        //
-        Notifications.events().registerNotificationReceivedForeground((notification: Notification, completion) => {
-            console.log(`Notification received in foreground: ${notification.title} : ${notification.body}`);
-            completion({alert: false, sound: false, badge: false});
-        });
-        //
-        // Notifications.events().registerNotificationOpened((notification: Notification, completion) => {
-        //     console.log(`Notification opened: ${notification.payload}`);
-        //     completion();
-        // });
-    };
-
-    const MyComponent = observer(({}) => (
-        <View style={styles.container}>
-            <View style={styles.display}><Text h1>{message}</Text></View>
-            <Button
-                style={styles.btn}
-                borderRadius={0}
-                label={'Send Message'}
-                round={false}
-                onPress={() => {
-                    connection.sendMessage('Hello, World!');
-                }}
-            />
-            <Button
-                style={styles.btn}
-                borderRadius={0}
-                label={'Notify'}
-                round={false}
-                onPress={() => {
-                    showNotifications();
-                }}
-            />
-            <Button
-                style={styles.btn}
-                borderRadius={0}
-                label={'Test'}
-                round={false}
-                onPress={() => {
-                    test.increment();
-                }}
-            />
-            <Button
-                style={styles.btn}
-                borderRadius={0}
-                label={'Test'}
-                round={false}
-                onPress={() => {
-                    test.increment();
-                }}
-            />
-        </View>
-    ));
-
     return (
-        <SafeAreaView>
-            <MyComponent/>
-        </SafeAreaView>
+        <ServicesProvider>
+            <MainContent/>
+        </ServicesProvider>
     );
 }
 
-class CountTest {
-    @observable accessor count: number = 0;
+const MainContent: React.FC = observer(() => {
+    const {connectionService} = useServices();
+    const message = useServerMessage();
 
-    @action
-    increment() {
-        this.count++;
-        console.log('Incrementing count to ' + this.count);
-    }
-}
+    return (
+        <SafeAreaView>
+            <View style={styles.container}>
+                <View style={styles.display}>
+                    <ScrollView>
+                        <Text h1>{message}</Text>
+                    </ScrollView>
+                </View>
+                <Button
+                    style={styles.btn}
+                    borderRadius={0}
+                    label={'Send Message'}
+                    round={false}
+                    onPress={() => {
+                        connectionService.sendMessage('Hello, World!');
+                    }}
+                />
+                <Button
+                    style={styles.btn}
+                    borderRadius={0}
+                    label={'Notify'}
+                    round={false}
+                    onPress={() => {
+                        NotificationsService.instance.displayPersistentNotification();
+                    }}
+                />
+                <Button
+                    style={styles.btn}
+                    borderRadius={0}
+                    label={'Change State'}
+                    round={false}
+                    onPress={() => {
+                        setTimeout(() => {
+                            connectionService.setLatestMessage('{"serviceName":"BatteryService","result":{"status":{"chargingStatus":"meme","batteryLevel":20,"isCharging":true}}}');
+                            NotificationsService.instance.displayPersistentNotification();
+                        }, 3000);
+                    }}
+                />
+                <Button
+                    style={styles.btn}
+                    borderRadius={0}
+                    label={'Test'}
+                    round={false}
+                />
+            </View>
+        </SafeAreaView>
+    );
+});
 
 const styles = StyleSheet.create({
     display: {

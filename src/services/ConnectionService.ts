@@ -1,14 +1,16 @@
 import {ClientWebSocket} from '../api/ClientWebSocket.ts';
 import {action, observable} from 'mobx';
+import Service from './Service.ts';
 
-const URL: string = '192.168.1.2';
-const PORT: number = 5445;
+export const DEFAULT_URL: string = '192.168.1.2';
+export const DEFAULT_PORT: number = 5445;
 
-export class ServerConnection {
-    private readonly _url: string;
-    private readonly _port: number;
-    private readonly _connection: ClientWebSocket;
-    private static _instance: ServerConnection;
+export default class ConnectionService extends Service {
+    private static _instance: ConnectionService;
+
+    private _url!: string;
+    private _port!: number;
+    private _connection!: ClientWebSocket;
 
     @observable
     accessor isConnected: boolean = false;
@@ -16,7 +18,18 @@ export class ServerConnection {
     @observable
     accessor latestMessage: string = '';
 
-    private constructor(url: string, port: number) {
+    static get instance() {
+        if (!this._instance) {
+            this._instance = new ConnectionService();
+        }
+        return this._instance;
+    }
+
+    private constructor() {
+        super();
+    }
+
+    init(url: string, port: number) {
         this._url = url;
         this._port = port;
         this._connection = new ClientWebSocket(
@@ -26,14 +39,6 @@ export class ServerConnection {
             this.onDisconnect.bind(this),
             this._onMessage.bind(this)
         );
-    }
-
-    static get instance(): ServerConnection {
-        if (!ServerConnection._instance) {
-            ServerConnection._instance = new ServerConnection(URL, PORT);
-        }
-
-        return ServerConnection._instance;
     }
 
     @action
