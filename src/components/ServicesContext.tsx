@@ -1,16 +1,16 @@
-import React, {createContext, useContext, useState} from 'react';
+import React, {createContext, useState} from 'react';
 
 import ConnectionService from '../services/ConnectionService.ts';
 import PersistentService from '../services/PersistentService.ts';
 import NotificationsService from '../services/NotificationsService.ts';
 
-interface ServicesContextType {
+export interface ServicesContextType {
     persistentService: PersistentService;
     connectionService: ConnectionService;
     notificationsService: NotificationsService;
 }
 
-const ServicesContext = createContext<ServicesContextType | undefined>(undefined);
+export const ServicesContext = createContext<ServicesContextType | undefined>(undefined);
 
 export const ServicesProvider: React.FC<{ children: React.ReactNode }> = ({children}) => {
     const [persistentService] = useState(() => PersistentService.instance);
@@ -24,12 +24,4 @@ export const ServicesProvider: React.FC<{ children: React.ReactNode }> = ({child
             {children}
         </ServicesContext.Provider>
     );
-};
-
-export const useServices = (): ServicesContextType => {
-    const context = useContext(ServicesContext);
-    if (context === undefined) {
-        throw new Error('useServices must be used within a ServicesProvider');
-    }
-    return context;
 };

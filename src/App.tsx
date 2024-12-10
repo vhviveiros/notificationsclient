@@ -3,8 +3,10 @@ import React from 'react';
 import {View, Button, Text, Typography} from 'react-native-ui-lib';
 import {observer} from 'mobx-react';
 import {useServerMessage} from './hooks/useConnection.ts';
-import {ServicesProvider, useServices} from './components/ServicesContext.tsx';
+import {ServicesProvider} from './components/ServicesContext.tsx';
 import NotificationsService from './services/NotificationsService.ts';
+import useServices from './hooks/useServices.ts';
+import useTextModifier from './RemoveMe.ts';
 
 Typography.loadTypographies({
     h1: {fontSize: 58, fontWeight: '300', lineHeight: 80},
@@ -21,6 +23,7 @@ export default function App(): JSX.Element {
 
 const MainContent: React.FC = observer(() => {
     const {connectionService} = useServices();
+    const {text} = useTextModifier();
     const message = useServerMessage();
 
     return (
@@ -28,7 +31,7 @@ const MainContent: React.FC = observer(() => {
             <View style={styles.container}>
                 <View style={styles.display}>
                     <ScrollView>
-                        <Text h1>{message}</Text>
+                        <Text h1>{text}</Text>
                     </ScrollView>
                 </View>
                 <Button

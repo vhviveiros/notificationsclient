@@ -1,7 +1,9 @@
+import {io, Socket} from 'socket.io-client';
+
 export class ClientWebSocket {
     private readonly _url: string;
     private readonly _port: number;
-    private _connection: WebSocket | undefined;
+    private _connection!: Socket;
     private readonly _onConnect: () => void;
     private readonly _onDisconnect: () => void;
     private readonly _onMessage: (message: WebSocketMessageEvent) => void;
@@ -9,22 +11,23 @@ export class ClientWebSocket {
     constructor(url: string, port: number, onConnect: () => void, onDisconnect: () => void, onMessage: (message: WebSocketMessageEvent) => void) {
         this._url = url;
         this._port = port;
-        console.log(`Connecting to ws://${this._url}:${this._port}`);
         this._onConnect = onConnect;
         this._onDisconnect = onDisconnect;
         this._onMessage = onMessage;
         this.connect();
     }
 
-    connect() {
-        if (this._connection?.readyState === WebSocket.OPEN) {
-            return;
+    async connect() {
+        const url = `http://${this._url}:${this._port}`;
+        this._connection = io(url);
+        this._connection.on('connect', this._onConnect);
+        this._connection.on('disconnect', this._onDisconnect);
+        this._connection.on('message', this._onMessage);
+        this._connection.on('connect_error', (error: any) => console.log(error));
+
+        if (this._connection.connected) {
+            this._onConnect();
         }
-        console.log('Attempting to connect...');
-        this._connection = new WebSocket(`ws://${this._url}:${this._port}`);
-        this._connection.onopen = this._onConnect;
-        this._connection.onclose = this._onDisconnect;
-        this._connection.onmessage = this._onMessage;
     }
 
     sendMessage(message: string) {
@@ -36,6 +39,10 @@ export class ClientWebSocket {
     }
 
     isConnected(): boolean {
-        return this._connection?.readyState === WebSocket.OPEN;
+        return this._connection?.connected || false;
+    }
+
+    disconnect() {
+        this._connection?.close();
     }
 }

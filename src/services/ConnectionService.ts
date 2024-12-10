@@ -35,20 +35,20 @@ export default class ConnectionService extends Service {
         this._connection = new ClientWebSocket(
             this._url,
             this._port,
-            this.onConnect.bind(this),
-            this.onDisconnect.bind(this),
+            this._onConnect.bind(this),
+            this._onDisconnect.bind(this),
             this._onMessage.bind(this)
         );
     }
 
     @action
-    onConnect() {
+    private _onConnect() {
         console.log('Connected');
         this.isConnected = true;
     }
 
     @action
-    async onDisconnect() {
+    async _onDisconnect() {
         console.log('Disconnected');
         this.isConnected = false;
         await new Promise(resolve => setTimeout(resolve, 10000));
@@ -68,7 +68,42 @@ export default class ConnectionService extends Service {
         }
     }
 
+    suspendServer() {
+        this.sendMessage('{"command":"suspend"}');
+        //Disconnect
+        this._connection.disconnect();
+    }
+
+    /**
+     * Event handler for when a message is received from the server.
+     * Updates the latestMessage observable with the received message.
+     * @param {WebSocketMessageEvent} message The received message event.
+     */
     private _onMessage(message: WebSocketMessageEvent) {
-        this.setLatestMessage(message.data);
+        this.setLatestMessage(message.toString());
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

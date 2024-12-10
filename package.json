@@ -19,6 +19,8 @@
     "react-native-gesture-handler": "^2.21.2",
     "react-native-reanimated": "^3.16.2",
     "react-native-ui-lib": "^7.34.2",
+    "socket.io": "^4.8.1",
+    "socket.io-client": "^4.8.1",
     "ws": "^8.18.0"
   },
   "devDependencies": {

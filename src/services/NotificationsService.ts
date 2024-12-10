@@ -1,4 +1,4 @@
-import notifee, {AndroidImportance, AuthorizationStatus, AndroidVisibility} from '@notifee/react-native';
+import notifee, {AndroidImportance, AuthorizationStatus, AndroidVisibility, EventType} from '@notifee/react-native';
 import Service from './Service.ts';
 import BatteryState from '../state/BatteryState.ts';
 import {observe} from 'mobx';
@@ -29,9 +29,19 @@ export default class NotificationsService extends Service {
 
     async registerForegroundService(runnable: () => Promise<void>) {
         await this.displayPersistentNotification();
-        notifee.registerForegroundService(runnable);
+        notifee.registerForegroundService(() => {
+            return new Promise(async () => {
+                notifee.onForegroundEvent(async ({type, detail}) => {
+                    if (type === EventType.ACTION_PRESS && detail.pressAction?.id === 'suspend') {
+                        ConnectionService.instance.suspendServer();
+                    }
+                });
+                await runnable();
+            });
+        });
         this.watchStateChanges();
     }
+
 
     watchStateChanges() {
         const batteryState = BatteryState.instance;
@@ -62,6 +72,14 @@ export default class NotificationsService extends Service {
                 importance: importance,
                 ongoing: true,
                 asForegroundService: true,
+                actions: [
+                    {
+                        title: 'Suspend',
+                        pressAction: {
+                            id: 'suspend',
+                        },
+                    },
+                ],
             },
         });
 
@@ -87,7 +105,7 @@ export default class NotificationsService extends Service {
         const title = 'Server Status';
         const conn = isConnected ? 'Connected' : 'Disconnected';
         const isCharging = batteryInfo.isCharging ? 'Charging' : 'Discharging';
-        console.log('Battery Info:', batteryInfo);
+        // console.log('Battery Info:', batteryInfo);
         const body = `Server ${conn}<br>Battery: ${batteryInfo.batteryLevel}% | ${isCharging}`;
 
         return displayNotification(title, body);
