@@ -32,8 +32,14 @@ export default class NotificationsService extends Service {
         notifee.registerForegroundService(() => {
             return new Promise(async () => {
                 notifee.onForegroundEvent(async ({type, detail}) => {
-                    if (type === EventType.ACTION_PRESS && detail.pressAction?.id === 'suspend') {
-                        ConnectionService.instance.suspendServer();
+                    const events: Record<string, () => void> = {
+                        'suspend': () => ConnectionService.instance.suspendServer(),
+                        'awake': () => ConnectionService.instance.awakeServer(),
+                    };
+
+                    if (type === EventType.ACTION_PRESS) {
+                        const id: string = detail.pressAction!.id.toString();
+                        events[id]();
                     }
                 });
                 await runnable();
@@ -79,6 +85,12 @@ export default class NotificationsService extends Service {
                             id: 'suspend',
                         },
                     },
+                    {
+                        title: 'Awake',
+                        pressAction: {
+                            id: 'awake',
+                        }
+                    }
                 ],
             },
         });

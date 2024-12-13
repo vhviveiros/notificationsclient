@@ -64,7 +64,8 @@ export default class ConnectionService extends Service {
         try {
             this._connection.sendMessage(message);
         } catch (e) {
-            console.error(e);
+            // @ts-ignore
+            console.error(e.stack);
         }
     }
 
@@ -74,13 +75,17 @@ export default class ConnectionService extends Service {
         this._connection.disconnect();
     }
 
+    awakeServer() {
+        this._connection.sendWoL('24:f5:aa:52:f9:8c');
+    }
+
     /**
      * Event handler for when a message is received from the server.
      * Updates the latestMessage observable with the received message.
      * @param {WebSocketMessageEvent} message The received message event.
      */
     private _onMessage(message: WebSocketMessageEvent) {
-        this.setLatestMessage(message.toString());
+        this.setLatestMessage(message.data);
     }
 }
 

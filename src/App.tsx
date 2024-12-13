@@ -1,37 +1,44 @@
-import {SafeAreaView, ScrollView, StyleSheet} from 'react-native';
+import { SafeAreaView, ScrollView, StyleSheet } from 'react-native';
 import React from 'react';
-import {View, Button, Text, Typography} from 'react-native-ui-lib';
-import {observer} from 'mobx-react';
-import {useServerMessage} from './hooks/useConnection.ts';
-import {ServicesProvider} from './components/ServicesContext.tsx';
-import NotificationsService from './services/NotificationsService.ts';
+import { View, Button, Text, Typography } from 'react-native-ui-lib';
+import { observer } from 'mobx-react-lite';
+import { ServicesProvider } from './components/ServicesContext.tsx';
 import useServices from './hooks/useServices.ts';
-import useTextModifier from './RemoveMe.ts';
 
 Typography.loadTypographies({
-    h1: {fontSize: 58, fontWeight: '300', lineHeight: 80},
-    counter: {fontSize: 58, fontWeight: '300', lineHeight: 80, textAlign: 'center'},
+    h1: { fontSize: 58, fontWeight: '300', lineHeight: 80 },
+    counter: { fontSize: 58, fontWeight: '300', lineHeight: 80, textAlign: 'center' },
 });
 
 export default function App(): JSX.Element {
     return (
         <ServicesProvider>
-            <MainContent/>
+            <MainContent />
         </ServicesProvider>
     );
 }
 
 const MainContent: React.FC = observer(() => {
-    const {connectionService} = useServices();
-    const {text} = useTextModifier();
-    const message = useServerMessage();
+    const { connectionService, notificationsService } = useServices();
+    const btn1Action = () => {
+        connectionService.sendMessage('Hello, Server!');
+    };
+    const btn2Action = () => {
+        notificationsService.displayPersistentNotification();
+    };
+    const btn3Action = () => {
+        setTimeout(() => {
+            connectionService.setLatestMessage('{"serviceName":"BatteryService","result":{"status":{"chargingStatus":"meme","batteryLevel":20,"isCharging":true}}}');
+            notificationsService.displayPersistentNotification();
+        }, 3000);
+    };
 
     return (
         <SafeAreaView>
             <View style={styles.container}>
                 <View style={styles.display}>
                     <ScrollView>
-                        <Text h1>{text}</Text>
+                        <Text h1>Empty Here</Text>
                     </ScrollView>
                 </View>
                 <Button
@@ -39,30 +46,21 @@ const MainContent: React.FC = observer(() => {
                     borderRadius={0}
                     label={'Send Message'}
                     round={false}
-                    onPress={() => {
-                        connectionService.sendMessage('Hello, World!');
-                    }}
+                    onPress={btn1Action}
                 />
                 <Button
                     style={styles.btn}
                     borderRadius={0}
                     label={'Notify'}
                     round={false}
-                    onPress={() => {
-                        NotificationsService.instance.displayPersistentNotification();
-                    }}
+                    onPress={btn2Action}
                 />
                 <Button
                     style={styles.btn}
                     borderRadius={0}
                     label={'Change State'}
                     round={false}
-                    onPress={() => {
-                        setTimeout(() => {
-                            connectionService.setLatestMessage('{"serviceName":"BatteryService","result":{"status":{"chargingStatus":"meme","batteryLevel":20,"isCharging":true}}}');
-                            NotificationsService.instance.displayPersistentNotification();
-                        }, 3000);
-                    }}
+                    onPress={btn3Action}
                 />
                 <Button
                     style={styles.btn}
