@@ -14,7 +14,13 @@ import dgram from 'react-native-udp';
 const createMagicPacket = (mac: string) => {
     const header = Buffer.alloc(6, 0xff);
     const macBuffer = Buffer.from(mac, 'hex');
-    const macRepeated = Buffer.concat(Array(16).fill(macBuffer));
+
+    // Explicitly create 16 full repetitions of the MAC address
+    const macRepeated = Buffer.alloc(16 * 6);  // 16 * MAC address length (6 bytes)
+    for (let i = 0; i < 16; i++) {
+        macBuffer.copy(macRepeated, i * 6);
+    }
+
     return Buffer.concat([header, macRepeated]);
 };
 
@@ -26,7 +32,7 @@ const createMagicPacket = (mac: string) => {
  *
  * @returns {Promise<string>} The broadcast address of the device's network interface.
  */
-const getBroadcastAddress = async () => {
+const getBroadcastAddress = async (): Promise<string> => {
     try {
         // const ipAddress = await NetworkInfo.getIPAddress();
         const ipAddress = '192.168.1.127';
@@ -61,6 +67,13 @@ const getBroadcastAddress = async () => {
  *                              separated by a colon (e.g., "01:23:45:67:89:AB")
  */
 const sendWOLPacket = async (macAddress: string) => {
+    const port = 7;
+
+    const logError = (err: Error) => {
+        console.error(`Error sending WoL packet on port ${port}: ${err.message}`);
+        console.error(err.stack);
+    };
+
     try {
         // Remove any separators and convert MAC address to standard format
         const mac = macAddress.replace(/[^0-9A-Fa-f]/g, '');
@@ -77,19 +90,21 @@ const sendWOLPacket = async (macAddress: string) => {
         const broadcastAddress = await getBroadcastAddress();
 
         // Create UDP socket
-        const socket = dgram.createSocket({ type: 'udp4' });
+        const socket = dgram.createSocket({type: 'udp4'});
 
         // Send magic packet
-        socket.send(magicPacket, 0, magicPacket.length, 9, broadcastAddress, (err) => {
+        console.log(`Sending WoL packet: ${magicPacket.toString('hex')}`);
+        socket.send(magicPacket, 0, magicPacket.length, port, broadcastAddress, (err) => {
             if (err) {
-                console.error('Error sending WoL packet:', err);
+                logError(err);
             } else {
                 console.log('WoL packet sent successfully');
             }
             socket.close();
         });
-    } catch (error) {
-        console.error('WoL packet sending failed:', error);
+    //@ts-ignore
+    } catch (error: Error) {
+        logError(error);
     }
 };
 

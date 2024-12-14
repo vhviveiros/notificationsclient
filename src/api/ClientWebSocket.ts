@@ -26,9 +26,9 @@ export class ClientWebSocket {
             console.log(`Attempting to connect to ${uri}...`);
             this._connection = new WebSocket(uri);
             console.log('WebSocket object created.');
-            this._connection.onopen = this._onConnect;
+            this._connection.onopen = this._onOpen.bind(this);
             this._connection.onclose = this._onDisconnect;
-            this._connection.onmessage = this._onMessage;
+            this._connection.onmessage = this._manageIncomingMessage.bind(this);
             this._connection.onerror = this._onError;
             // @ts-ignore
         } catch (e: Error) {
@@ -66,10 +66,10 @@ export class ClientWebSocket {
      * @returns {Promise<string>} A promise that resolves with a success message if the packet is sent successfully,
      * or rejects with an error if the operation fails.
      */
-    async sendWoL(macAddress: string) {
-        return new Promise((resolve, reject) => {
+    sendWoL(macAddress: string): Promise<string> {
+        return new Promise(async (resolve, reject) => {
             try {
-                sendWOLPacket(macAddress);
+                await sendWOLPacket(macAddress);
                 resolve('Package sent successfully');
             } catch (error) {
                 // @ts-ignore
@@ -77,5 +77,62 @@ export class ClientWebSocket {
                 reject(error);
             }
         });
+    }
+
+    private _onOpen() {
+        this._onConnect();
+        this._checkIsAlive();
+    }
+
+    private _manageIncomingMessage(message: WebSocketMessageEvent) {
+        console.log(`Message received: ${message.data}`);
+        if (message.data === 'pong') {
+            return;
+        }
+        this._onMessage(message);
+    }
+
+    /**
+     * Periodically checks if the WebSocket connection is alive by sending a 'ping' message
+     * and waiting for a 'pong' response within 10 seconds. Disconnects if no response is received.
+     * @private
+     */
+    private async _checkIsAlive() {
+        do {
+            const promises: Promise<string>[] = [
+                new Promise((resolve) => {
+                    const listener = (message: WebSocketMessageEvent) => {
+                        if (message.data === 'pong') {
+                            resolve('pong');
+                            // Remove the listener once a pong is received
+                            this._connection.removeEventListener('message', listener);
+                        }
+                    };
+                    // Attach listener for the 'pong' message
+                    this._connection.addEventListener('message', listener);
+                }),
+                // Resolve 'timeout' after 10 seconds if no pong is received
+                new Promise((resolve) => setTimeout(resolve, 5000, 'timeout')),
+            ];
+
+            // Send a ping to the server
+            this._pingServer();
+
+            // Wait for either a pong or timeout
+            await Promise.race(promises).then((result) => {
+                if (result === 'timeout') {
+                    console.error('No pong received. Disconnecting...');
+                    this.disconnect();
+                }
+            });
+
+            await new Promise(resolve => setTimeout(resolve, 5000));
+        } while (this.isConnected());
+    }
+
+    private _pingServer() {
+        if (this.isConnected()) {
+            this.sendMessage('ping');
+        }
     }
 }

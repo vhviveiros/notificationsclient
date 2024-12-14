@@ -89,8 +89,8 @@ export default class NotificationsService extends Service {
                         title: 'Awake',
                         pressAction: {
                             id: 'awake',
-                        }
-                    }
+                        },
+                    },
                 ],
             },
         });

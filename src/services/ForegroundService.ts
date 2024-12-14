@@ -32,7 +32,6 @@ export default class ForegroundService extends Service {
     private _runnable = () => {
         return new Promise<void>(_ => {
             observe(ConnectionService.instance, 'latestMessage', (newMessage) => {
-                console.log('Received message:', newMessage.newValue);
                 this._onMessage(newMessage.newValue);
             });
         });
