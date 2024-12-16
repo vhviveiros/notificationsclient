@@ -1,4 +1,6 @@
-import sendWOLPacket from './Wol.ts';
+import {NativeModules} from 'react-native';
+
+const {Wol} = NativeModules;
 
 export class ClientWebSocket {
     private readonly _url: string;
@@ -69,7 +71,7 @@ export class ClientWebSocket {
     sendWoL(macAddress: string): Promise<string> {
         return new Promise(async (resolve, reject) => {
             try {
-                await sendWOLPacket(macAddress);
+                await Wol.sendWolPacket(macAddress);
                 resolve('Package sent successfully');
             } catch (error) {
                 // @ts-ignore
