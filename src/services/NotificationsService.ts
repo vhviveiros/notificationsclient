@@ -31,7 +31,7 @@ export default class NotificationsService extends Service {
         await this.displayPersistentNotification();
         notifee.registerForegroundService(() => {
             return new Promise(async () => {
-                notifee.onForegroundEvent(async ({type, detail}) => {
+                notifee.onBackgroundEvent(async ({type, detail}) => {
                     const events: Record<string, () => void> = {
                         'suspend': () => ConnectionService.instance.suspendServer(),
                         'awake': () => ConnectionService.instance.awakeServer(),
@@ -74,6 +74,7 @@ export default class NotificationsService extends Service {
             title: title,
             body: body,
             android: {
+                autoCancel: false,
                 channelId: channelId,
                 importance: importance,
                 ongoing: true,

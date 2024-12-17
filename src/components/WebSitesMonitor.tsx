@@ -14,7 +14,7 @@ interface WebSitesMonitorProps {
 
 // @ts-ignore
 const SiteStatus = ({statusItem, index}) => (
-    <View style={styles.listItemContainer}>
+    <View style={styles.listItemContainer} key={`listItemContainer ${index}`}>
         <View style={[
             listItemIndicatorStyles.indicator,
             // @ts-ignore

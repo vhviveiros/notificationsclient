@@ -65,13 +65,14 @@ export class ClientWebSocket {
      * Sends a Wake-on-LAN packet to the specified MAC address.
      *
      * @param {string} macAddress - The MAC address of the device to wake up.
+     * @param targetIp - The target IP address to send the Wake-on-LAN packet to.
      * @returns {Promise<string>} A promise that resolves with a success message if the packet is sent successfully,
      * or rejects with an error if the operation fails.
      */
-    sendWoL(macAddress: string): Promise<string> {
+    sendWoL(macAddress: string, targetIp: string): Promise<string> {
         return new Promise(async (resolve, reject) => {
             try {
-                await Wol.sendWolPacket(macAddress);
+                await Wol.sendWolPacket(macAddress, targetIp);
                 resolve('Package sent successfully');
             } catch (error) {
                 // @ts-ignore

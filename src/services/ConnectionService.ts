@@ -70,13 +70,14 @@ export default class ConnectionService extends Service {
     }
 
     suspendServer() {
+        console.log('Sending suspend command...');
         this.sendMessage('{"command":"suspend"}');
-        //Disconnect
         this._connection.disconnect();
     }
 
     awakeServer() {
-        this._connection.sendWoL('24:f5:aa:52:f9:8c');
+        console.log('Sending awake command...');
+        this._connection.sendWoL('24:f5:aa:52:f9:8c', '192.168.1.2');
     }
 
     /**
