@@ -77,7 +77,7 @@ export default class ConnectionService extends Service {
 
     awakeServer() {
         console.log('Sending awake command...');
-        this._connection.sendWoL('24:f5:aa:52:f9:8c', '192.168.1.2');
+        [7, 9].forEach(port => this._connection.sendWoL('24:f5:aa:52:f9:8c', '192.168.1.2', port));
     }
 
     /**
