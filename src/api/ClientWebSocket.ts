@@ -1,15 +1,22 @@
-import {NativeModules} from 'react-native';
-
-const {Wol} = NativeModules;
-
+/**
+ * A class to manage WebSocket connections and communication.
+ */
 export class ClientWebSocket {
-    private readonly _url: string;
-    private readonly _port: number;
-    private _connection!: WebSocket;
-    private readonly _onConnect: () => void;
-    private readonly _onDisconnect: () => void;
-    private readonly _onMessage: (message: WebSocketMessageEvent) => void;
+    private readonly _url: string; // WebSocket server URL
+    private readonly _port: number; // WebSocket server port
+    private _connection!: WebSocket; // WebSocket connection instance
+    private readonly _onConnect: () => void; // Callback for successful connection
+    private readonly _onDisconnect: () => void; // Callback for disconnection
+    private readonly _onMessage: (message: WebSocketMessageEvent) => void; // Callback for incoming messages
 
+    /**
+     * Initializes the WebSocket client.
+     * @param {string} url - The WebSocket server URL.
+     * @param {number} port - The WebSocket server port.
+     * @param {() => void} onConnect - Callback executed upon connection.
+     * @param {() => void} onDisconnect - Callback executed upon disconnection.
+     * @param {(message: WebSocketMessageEvent) => void} onMessage - Callback for incoming messages.
+     */
     constructor(url: string, port: number, onConnect: () => void, onDisconnect: () => void, onMessage: (message: WebSocketMessageEvent) => void) {
         this._url = url;
         this._port = port;
@@ -19,6 +26,11 @@ export class ClientWebSocket {
         this.connect();
     }
 
+    /**
+     * Establishes a connection to the WebSocket server.
+     *
+     * If the connection is already open, this method does nothing.
+     */
     connect() {
         try {
             if (this._connection?.readyState === WebSocket.OPEN) {
@@ -28,6 +40,8 @@ export class ClientWebSocket {
             console.log(`Attempting to connect to ${uri}...`);
             this._connection = new WebSocket(uri);
             console.log('WebSocket object created.');
+
+            // Assign event handlers
             this._connection.onopen = this._onOpen.bind(this);
             this._connection.onclose = this._onDisconnect;
             this._connection.onmessage = this._manageIncomingMessage.bind(this);
@@ -39,55 +53,62 @@ export class ClientWebSocket {
         }
     }
 
+    /**
+     * Sends a message through the WebSocket connection.
+     * @param {string} message - The message to send.
+     * @throws Error throw an error if the WebSocket is not connected.
+     */
     sendMessage(message: string) {
         if (!this.isConnected()) {
             throw new Error('Disconnected from server');
         }
-
-        this._connection!!.send(message);
+        try {
+            this._connection!!.send(message);
+        } catch (e) {
+            console.error(`Error while sending message: ${(e as Error).message}`);
+        }
     }
 
+    /**
+     * Checks if the WebSocket connection is open.
+     * @returns {boolean} True if the connection is open, false otherwise.
+     */
     isConnected(): boolean {
         return this._connection?.readyState === WebSocket.OPEN;
     }
 
+    /**
+     * Closes the WebSocket connection if it is open.
+     */
     disconnect() {
         if (this.isConnected()) {
             this._connection.close();
         }
     }
 
+    /**
+     * Handles WebSocket errors.
+     * @param {WebSocketErrorEvent} error - The error event.
+     * @private
+     */
     private _onError(error: WebSocketErrorEvent) {
         console.error(`WebSocket connection error: ${error.message}`);
     }
 
     /**
-     * Sends a Wake-on-LAN packet to the specified MAC address.
-     *
-     * @param {string} macAddress - The MAC address of the device to wake up.
-     * @param targetIp - The target IP address to send the Wake-on-LAN packet to.
-     * @param targetPort - The target port to send the Wake-on-LAN packet to.
-     * @returns {Promise<string>} A promise that resolves with a success message if the packet is sent successfully,
-     * or rejects with an error if the operation fails.
+     * Handles the `onopen` event of the WebSocket connection.
+     * @private
      */
-    sendWoL(macAddress: string, targetIp: string, targetPort: number): Promise<string> {
-        return new Promise(async (resolve, reject) => {
-            try {
-                await Wol.sendWolPacket(macAddress, targetIp, targetPort);
-                resolve('Package sent successfully');
-            } catch (error) {
-                // @ts-ignore
-                console.error(`Error sending wol package: ${error.stack}`);
-                reject(error);
-            }
-        });
-    }
-
     private _onOpen() {
         this._onConnect();
         this._checkIsAlive();
     }
 
+    /**
+     * Manages incoming WebSocket messages.
+     * @param {WebSocketMessageEvent} message - The incoming message event.
+     * @private
+     */
     private _manageIncomingMessage(message: WebSocketMessageEvent) {
         console.log(`Message received: ${message.data}`);
         if (message.data === 'pong') {
@@ -97,32 +118,28 @@ export class ClientWebSocket {
     }
 
     /**
-     * Periodically checks if the WebSocket connection is alive by sending a 'ping' message
-     * and waiting for a 'pong' response within 10 seconds. Disconnects if no response is received.
+     * Periodically checks if the WebSocket connection is alive by sending ping messages.
+     * Disconnects if no `pong` response is received within 5 seconds.
      * @private
      */
     private async _checkIsAlive() {
+        const timeout = 7000;
         do {
             const promises: Promise<string>[] = [
                 new Promise((resolve) => {
                     const listener = (message: WebSocketMessageEvent) => {
                         if (message.data === 'pong') {
                             resolve('pong');
-                            // Remove the listener once a pong is received
                             this._connection.removeEventListener('message', listener);
                         }
                     };
-                    // Attach listener for the 'pong' message
                     this._connection.addEventListener('message', listener);
                 }),
-                // Resolve 'timeout' after 10 seconds if no pong is received
-                new Promise((resolve) => setTimeout(resolve, 5000, 'timeout')),
+                new Promise((resolve) => setTimeout(resolve, timeout, 'timeout')),
             ];
 
-            // Send a ping to the server
             this._pingServer();
 
-            // Wait for either a pong or timeout
             await Promise.race(promises).then((result) => {
                 if (result === 'timeout') {
                     console.error('No pong received. Disconnecting...');
@@ -130,10 +147,14 @@ export class ClientWebSocket {
                 }
             });
 
-            await new Promise(resolve => setTimeout(resolve, 5000));
+            await new Promise(resolve => setTimeout(resolve, timeout));
         } while (this.isConnected());
     }
 
+    /**
+     * Sends a ping message to the WebSocket server.
+     * @private
+     */
     private _pingServer() {
         if (this.isConnected()) {
             this.sendMessage('ping');

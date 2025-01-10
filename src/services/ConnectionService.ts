@@ -1,11 +1,16 @@
 import {ClientWebSocket} from '../api/ClientWebSocket.ts';
 import {action, observable} from 'mobx';
 import Service from './Service.ts';
+import ForegroundService from './ForegroundService.ts';
+import {NativeModules} from 'react-native';
 
 export const DEFAULT_URL: string = '192.168.1.2';
 export const DEFAULT_PORT: number = 5445;
 
+const {Wol} = NativeModules;
+
 export default class ConnectionService extends Service {
+    serviceName: string = 'ConnectionService';
     private static _instance: ConnectionService;
 
     private _url!: string;
@@ -39,6 +44,7 @@ export default class ConnectionService extends Service {
             this._onDisconnect.bind(this),
             this._onMessage.bind(this)
         );
+        this.isRunning = true;
     }
 
     @action
@@ -51,8 +57,11 @@ export default class ConnectionService extends Service {
     async _onDisconnect() {
         console.log('Disconnected');
         this.isConnected = false;
+        if (!ForegroundService.instance.isRunning) {
+            return;
+        }
         await new Promise(resolve => setTimeout(resolve, 10000));
-        this._connection.connect();
+        this._connection!.connect();
     }
 
     @action
@@ -62,7 +71,7 @@ export default class ConnectionService extends Service {
 
     sendMessage(message: string) {
         try {
-            this._connection.sendMessage(message);
+            this._connection!.sendMessage(message);
         } catch (e) {
             // @ts-ignore
             console.error(e.stack);
@@ -72,12 +81,25 @@ export default class ConnectionService extends Service {
     suspendServer() {
         console.log('Sending suspend command...');
         this.sendMessage('{"command":"suspend"}');
-        this._connection.disconnect();
+        this._connection!.disconnect();
     }
 
-    awakeServer() {
+    async awakeServer() {
         console.log('Sending awake command...');
-        [7, 9].forEach(port => this._connection.sendWoL('24:f5:aa:52:f9:8c', '192.168.1.2', port));
+        const macAddress = '24:f5:aa:52:f9:8c';
+        const targetIp = '192.168.1.2';
+
+        try {
+            await Wol.sendWolPacket(macAddress, targetIp);
+            return 'Package sent successfully';
+        } catch (error) {
+            console.error(`Error sending wol package: ${(error as Error).stack}`);
+            throw error;
+        }
+    }
+
+    disconnect() {
+        this._connection!.disconnect();
     }
 
     /**
@@ -87,5 +109,11 @@ export default class ConnectionService extends Service {
      */
     private _onMessage(message: WebSocketMessageEvent) {
         this.setLatestMessage(message.data);
+    }
+
+    stop() {
+        this.disconnect();
+        this.latestMessage = '';
+        super.stop();
     }
 }

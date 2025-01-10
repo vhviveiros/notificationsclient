@@ -13,14 +13,14 @@ interface WebSitesMonitorProps {
 }
 
 // @ts-ignore
-const SiteStatus = ({statusItem, index}) => (
-    <View style={styles.listItemContainer} key={`listItemContainer ${index}`}>
+const SiteStatus = ({statusItem}) => (
+    <View style={styles.listItemContainer}>
         <View style={[
             listItemIndicatorStyles.indicator,
             // @ts-ignore
             listItemIndicatorStyles[statusItem.status],
         ]}/>
-        <Text style={styles.listItem} key={`listItem ${index}`}>
+        <Text style={styles.listItem}>
             {statusItem.url}
         </Text>
     </View>
@@ -33,7 +33,7 @@ const WebSitesMonitor: React.FC<WebSitesMonitorProps> = ({urls, style}) => {
                 <Text style={styles.containerTitle}>WebSites Monitor</Text>
                 <ScrollView style={styles.list}>
                     {urls.map((statusItem, index) => {
-                        return <SiteStatus statusItem={statusItem} index={index}/>;
+                        return <SiteStatus statusItem={statusItem} key={`wsb-${index}`}/>;
                     })}
                 </ScrollView>
             </View>

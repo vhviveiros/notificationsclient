@@ -1,17 +1,15 @@
-import {observe} from 'mobx';
+import {action, observe, when} from 'mobx';
 import Service from './Service.ts';
 import NotificationsService from './NotificationsService.ts';
 import ConnectionService from './ConnectionService.ts';
 import BatteryState from '../state/BatteryState.ts';
 
 export default class ForegroundService extends Service {
-    private static counter: number = 0;
+    serviceName: string = 'ForegroundService';
     private static _instance: ForegroundService;
 
     private constructor() {
         super();
-        ForegroundService.counter++;
-        console.log(`ForegroundService instance created: ${ForegroundService.counter}`);
     }
 
     static get instance() {
@@ -25,23 +23,37 @@ export default class ForegroundService extends Service {
     }
 
     init() {
-        console.log('Registering foreground service');
+        this.disposerList.push(observe(ConnectionService.instance, 'latestMessage', (newMessage) => {
+            this._onMessage(newMessage.newValue);
+        }, true));
         NotificationsService.instance.registerForegroundService(this._runnable);
+        super.init();
     }
 
-    private _runnable = () => {
-        return new Promise<void>(_ => {
-            observe(ConnectionService.instance, 'latestMessage', (newMessage) => {
-                this._onMessage(newMessage.newValue);
+    @action
+    private _runnable() {
+        return new Promise<void>((_, reject) => {
+            when(() => !ForegroundService.instance.isRunning, () => {
+                reject();
             });
+            this.isRunning = true;
         });
-    };
+    }
 
     private _onMessage(message: string) {
         console.log('ForegroundService: Received message:', message);
-        const data = JSON.parse(message);
-        if (data.serviceName === BatteryState.instance.serviceName) {
-            BatteryState.instance.setState(data.result.status);
+        if (!message) {
+            return;
+        }
+        try {
+            const data = JSON.parse(message);
+            if (data.serviceName === BatteryState.instance.serviceName) {
+                BatteryState.instance.setState(data.result.status);
+            }
+        } catch (error) {
+            if (error instanceof SyntaxError) {
+                console.error('ForegroundService: Invalid message:', message);
+            }
         }
     }
 }
