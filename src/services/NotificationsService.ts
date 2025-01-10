@@ -3,8 +3,10 @@ import Service from './Service.ts';
 import BatteryState from '../state/BatteryState.ts';
 import {observe} from 'mobx';
 import ConnectionService from './ConnectionService.ts';
+import ForegroundService from './ForegroundService.ts';
 
 export default class NotificationsService extends Service {
+    serviceName: string = 'NotificationsService';
     private static _instance: NotificationsService;
     private _persistentChannel!: string;
 
@@ -19,29 +21,34 @@ export default class NotificationsService extends Service {
         return this._instance;
     }
 
-    init() {
-    }
-
     async requestPermission() {
         const permission = await notifee.requestPermission();
         return permission.authorizationStatus === AuthorizationStatus.AUTHORIZED;
+    }
+
+    async registerBackgroundEvents() {
+        notifee.onBackgroundEvent(async ({type, detail}) => {
+            const events: Record<string, () => void> = {
+                'suspend': () => ConnectionService.instance.suspendServer(),
+                'awake': () => ConnectionService.instance.awakeServer(),
+                'dismiss': async () => {
+                    console.log('Dismiss pressed');
+                    this.stop();
+                },
+            };
+
+            if (type === EventType.ACTION_PRESS) {
+                const id: string = detail.pressAction!.id.toString();
+                events[id]();
+            }
+        });
     }
 
     async registerForegroundService(runnable: () => Promise<void>) {
         await this.displayPersistentNotification();
         notifee.registerForegroundService(() => {
             return new Promise(async () => {
-                notifee.onBackgroundEvent(async ({type, detail}) => {
-                    const events: Record<string, () => void> = {
-                        'suspend': () => ConnectionService.instance.suspendServer(),
-                        'awake': () => ConnectionService.instance.awakeServer(),
-                    };
-
-                    if (type === EventType.ACTION_PRESS) {
-                        const id: string = detail.pressAction!.id.toString();
-                        events[id]();
-                    }
-                });
+                await this.registerBackgroundEvents();
                 await runnable();
             });
         });
@@ -53,13 +60,51 @@ export default class NotificationsService extends Service {
         const batteryState = BatteryState.instance;
         const connectionService = ConnectionService.instance;
 
-        observe(connectionService, () => {
-            this.displayPersistentNotification();
+        this.disposerList.push(
+            observe(connectionService, () => {
+                this.displayPersistentNotification();
+                if (!connectionService.isConnected) {
+                    this.displayAlertNotification('Disconnected from server.');
+                }
+            })
+        );
+
+        this.disposerList.push(
+            observe(batteryState, () => {
+                this.displayPersistentNotification();
+                if (!batteryState.isCharging) {
+                    this.displayAlertNotification('Battery is discharging.');
+                }
+            })
+        );
+    }
+
+    async displayAlertNotification(body: string) {
+        if (!(await this.requestPermission())) {
+            return;
+        }
+
+        const importance = AndroidImportance.HIGH;
+        const channelId = 'alert-notifee';
+
+        await notifee.createChannel({
+            id: channelId,
+            name: 'Alert Notification',
+            importance: importance,
+            visibility: AndroidVisibility.PUBLIC,
+            lights: true,
         });
 
-        observe(batteryState, () => {
-            this.displayPersistentNotification();
+        const displayNotification = () => notifee.displayNotification({
+            id: channelId,
+            body: body,
+            android: {
+                channelId: channelId,
+                importance: importance,
+            },
         });
+
+        return displayNotification();
     }
 
     async displayPersistentNotification() {
@@ -92,6 +137,12 @@ export default class NotificationsService extends Service {
                             id: 'awake',
                         },
                     },
+                    {
+                        title: 'Dismiss',
+                        pressAction: {
+                            id: 'dismiss',
+                        },
+                    },
                 ],
             },
         });
@@ -122,5 +173,13 @@ export default class NotificationsService extends Service {
         const body = `Server ${conn}<br>Battery: ${batteryInfo.batteryLevel}% | ${isCharging}`;
 
         return displayNotification(title, body);
+    }
+
+    stop() {
+        notifee.cancelAllNotifications();
+        notifee.stopForegroundService();
+        ForegroundService.instance.stop();
+        ConnectionService.instance.stop();
+        super.stop();
     }
 }
