@@ -66,16 +66,16 @@ export default class NotificationsService extends Service {
                 if (!connectionService.isConnected) {
                     this.displayAlertNotification('Disconnected from server.');
                 }
-            })
+            }, false)
         );
 
         this.disposerList.push(
             observe(batteryState, () => {
                 this.displayPersistentNotification();
-                if (!batteryState.isCharging) {
+                if (batteryState.hasInit() && !batteryState.isCharging) {
                     this.displayAlertNotification('Battery is discharging.');
                 }
-            })
+            }, false)
         );
     }
 

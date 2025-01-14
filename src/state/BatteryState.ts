@@ -25,7 +25,7 @@ export default class BatteryState implements MobxState {
             this.isCharging = batteryInfo.isDischarging === false;
             this.chargingState = batteryInfo.status;
         } else {
-            this.batteryLevel = 0;
+            this.batteryLevel = -1;
             this.isCharging = false;
             this.chargingState = 'unknown';
         }
@@ -44,4 +44,6 @@ export default class BatteryState implements MobxState {
         this.isCharging = batteryInfo.isCharging;
         this.chargingState = batteryInfo.chargingState;
     }
+
+    hasInit = () => this.batteryLevel !== -1 && this.chargingState !== 'unknown';
 }

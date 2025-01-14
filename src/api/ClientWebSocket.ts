@@ -123,7 +123,7 @@ export class ClientWebSocket {
      * @private
      */
     private async _checkIsAlive() {
-        const timeout = 7000;
+        const timeout = 10000;
         do {
             const promises: Promise<string>[] = [
                 new Promise((resolve) => {

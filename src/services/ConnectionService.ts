@@ -16,6 +16,16 @@ export default class ConnectionService extends Service {
     private _url!: string;
     private _port!: number;
     private _connection!: ClientWebSocket;
+    private _reconnectionTimeout: number = 10000;
+    private _isCheckingConnection: boolean = false;
+
+    setDefaultTimeout() {
+        this._reconnectionTimeout = 10000;
+    }
+
+    setQuickReconnectTimeout() {
+        this._reconnectionTimeout = 500;
+    }
 
     @observable
     accessor isConnected: boolean = false;
@@ -56,11 +66,40 @@ export default class ConnectionService extends Service {
     @action
     async _onDisconnect() {
         console.log('Disconnected');
-        this.isConnected = false;
         if (!ForegroundService.instance.isRunning) {
             return;
         }
-        await new Promise(resolve => setTimeout(resolve, 10000));
+
+        // Handle reconnection timeout reset
+        const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+        const checkConnection = async () => {
+            if (this._isCheckingConnection) {
+                return;
+            }
+            try {
+                console.log('Checking connection...');
+                this._isCheckingConnection = true;
+                // We're trying to reconnect here as soon as possible
+                this.setQuickReconnectTimeout();
+
+                // Disconnect after n seconds if the connection is not re-established
+                await sleep(5000);
+
+                if (!ConnectionService.instance._connection!.isConnected()) {
+                    ConnectionService.instance.isConnected = false;
+                    this.setDefaultTimeout();
+                }
+            } finally {
+                console.log('Checking connection finished');
+                this._isCheckingConnection = false;
+            }
+        };
+
+        checkConnection();
+
+        console.log('Reconnecting after calling checkConnection...');
+        await sleep(this._reconnectionTimeout);
         this._connection!.connect();
     }
 
