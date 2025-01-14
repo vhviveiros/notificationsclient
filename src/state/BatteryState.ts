@@ -20,10 +20,10 @@ export default class BatteryState implements MobxState {
         const lastMessage = ConnectionService.instance?.latestMessage;
         console.log('BatteryState: Last message:', lastMessage);
         if (lastMessage) {
-            const batteryInfo = JSON.parse(lastMessage).result.status;
+            const batteryInfo = JSON.parse(lastMessage).result.state;
             this.batteryLevel = batteryInfo.percentage;
             this.isCharging = batteryInfo.isDischarging === false;
-            this.chargingState = batteryInfo.status;
+            this.chargingState = batteryInfo.state;
         } else {
             this.batteryLevel = -1;
             this.isCharging = false;

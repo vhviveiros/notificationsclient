@@ -19,6 +19,7 @@ export default abstract class Service {
         }
         this.isRunning = false;
         this.disposerList.forEach(dispose => dispose());
+        this.disposerList = [];
         console.log(`${this.serviceName} has stopped.`);
     }
 }

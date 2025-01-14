@@ -22,15 +22,15 @@ const MainContent: React.FC = observer(() => {
     const urlData = [
         {
             url: 'https://www.example.com',
-            status: 'active',
+            state: 'active',
         },
         {
             url: 'https://www.brokenlink.com',
-            status: 'inactive',
+            state: 'inactive',
         },
         {
             url: 'https://www.another-example.org',
-            status: 'active',
+            state: 'active',
         },
     ];
 

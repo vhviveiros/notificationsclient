@@ -7,6 +7,7 @@ import Service from './Service.ts';
 export default class MainService extends Service {
     serviceName: string = 'MainService';
     private static _instance: MainService;
+    services: Service[] = [];
 
     private constructor() {
         super();
@@ -29,9 +30,8 @@ export default class MainService extends Service {
         const notificationsService = NotificationsService.instance;
         const foregroundService = ForegroundService.instance;
 
-        foregroundService.init();
-        connectionService.init(DEFAULT_URL, DEFAULT_PORT);
-        notificationsService.init();
+        this.services.push(connectionService, notificationsService, foregroundService);
+        this.services.forEach(service => service.init())
 
         if (__DEV__) {
             this.disposerList.push(observe(connectionService, 'latestMessage', (change) => {
@@ -41,9 +41,7 @@ export default class MainService extends Service {
     }
 
     stop() {
-        ConnectionService.instance.stop();
-        NotificationsService.instance.stop();
-        ForegroundService.instance.stop();
+        this.services.forEach(service => service.stop());
         super.stop();
     }
 }
