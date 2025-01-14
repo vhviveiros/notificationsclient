@@ -18,7 +18,7 @@ const SiteStatus = ({statusItem}) => (
         <View style={[
             listItemIndicatorStyles.indicator,
             // @ts-ignore
-            listItemIndicatorStyles[statusItem.status],
+            listItemIndicatorStyles[statusItem.state],
         ]}/>
         <Text style={styles.listItem}>
             {statusItem.url}

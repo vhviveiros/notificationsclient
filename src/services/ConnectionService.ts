@@ -44,7 +44,7 @@ export default class ConnectionService extends Service {
         super();
     }
 
-    init(url: string, port: number) {
+    init(url: string = DEFAULT_URL, port: number = DEFAULT_PORT) {
         this._url = url;
         this._port = port;
         this._connection = new ClientWebSocket(

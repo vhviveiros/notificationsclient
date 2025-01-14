@@ -3,6 +3,7 @@ import Service from './Service.ts';
 import NotificationsService from './NotificationsService.ts';
 import ConnectionService from './ConnectionService.ts';
 import BatteryState from '../state/BatteryState.ts';
+import MainService from './MainService.ts';
 
 export default class ForegroundService extends Service {
     serviceName: string = 'ForegroundService';
@@ -45,11 +46,32 @@ export default class ForegroundService extends Service {
         if (!message) {
             return;
         }
-        try {
-            const data = JSON.parse(message);
+
+        const onConnMessage = (data?: Record<string, { serviceName: string; serviceState: any }>) => {
+            if (!data) return;
+
+            Object.values(data.connMessage).forEach((serviceState: any) => {
+                if (serviceState.serviceName === BatteryState.instance.serviceName) {
+                    BatteryState.instance.setState(serviceState.serviceState);
+                }
+            });
+        };
+
+        const onServiceUpdate = (data?: { serviceName: string; newState: any }) => {
+            if (!data) return;
+
             if (data.serviceName === BatteryState.instance.serviceName) {
-                BatteryState.instance.setState(data.result.status);
+                BatteryState.instance.setState(data.newState);
             }
+        };
+
+        try {
+            //Currently, there's two possibilities:
+            // {serviceUpdate:{serviceName, newState}}
+            // {connMessage:{{serviceName, serviceState}, {serviceName, serviceState}, ...}}
+            const data = JSON.parse(message);
+            onServiceUpdate(data?.serviceName);
+            onConnMessage(data?.connMessage);
         } catch (error) {
             if (error instanceof SyntaxError) {
                 console.error('ForegroundService: Invalid message:', message);
