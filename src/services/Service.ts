@@ -1,18 +1,21 @@
-import {action, observable} from 'mobx';
+import {action, makeObservable, observable} from 'mobx';
 
-export default abstract class Service {
+abstract class Service {
     abstract serviceName: string;
-
-    @observable
-    accessor isRunning: boolean = false;
     disposerList: (() => void)[] = [];
+    isRunning: boolean = false;
 
-    init(..._: any[]): void {
-        console.log(`Initializing ${this.serviceName}`);
-        this.isRunning = true;
+    constructor() {
+        makeObservable(this, {
+            isRunning: observable,
+            stop: action,
+        });
+
+        this.init();
     }
 
-    @action
+    abstract init(): void;
+
     stop(..._: any[]): void {
         if (!this.isRunning) {
             return;
@@ -23,3 +26,5 @@ export default abstract class Service {
         console.log(`${this.serviceName} has stopped.`);
     }
 }
+
+export default Service;

@@ -2,7 +2,6 @@ import {SafeAreaView, StyleSheet} from 'react-native';
 import React from 'react';
 import {Typography, View} from 'react-native-ui-lib';
 import {observer} from 'mobx-react-lite';
-import {ServicesProvider} from './components/ServicesContext.tsx';
 import WebSitesMonitor from './components/WebSitesMonitor.tsx';
 
 Typography.loadTypographies({
@@ -12,9 +11,7 @@ Typography.loadTypographies({
 
 export default function App(): JSX.Element {
     return (
-        <ServicesProvider>
-            <MainContent/>
-        </ServicesProvider>
+        <MainContent/>
     );
 }
 
@@ -22,15 +19,15 @@ const MainContent: React.FC = observer(() => {
     const urlData = [
         {
             url: 'https://www.example.com',
-            state: 'active',
+            status: 'active',
         },
         {
             url: 'https://www.brokenlink.com',
-            state: 'inactive',
+            status: 'inactive',
         },
         {
             url: 'https://www.another-example.org',
-            state: 'active',
+            status: 'active',
         },
     ];
 

@@ -1,23 +1,38 @@
+import 'reflect-metadata';
 import {ClientWebSocket} from '../api/ClientWebSocket.ts';
-import {action, observable} from 'mobx';
+import {action, makeObservable, observable} from 'mobx';
 import Service from './Service.ts';
-import ForegroundService from './ForegroundService.ts';
 import {NativeModules} from 'react-native';
+import {singleton} from 'tsyringe';
 
 export const DEFAULT_URL: string = '192.168.1.2';
 export const DEFAULT_PORT: number = 5445;
 
 const {Wol} = NativeModules;
 
+@singleton()
 export default class ConnectionService extends Service {
     serviceName: string = 'ConnectionService';
-    private static _instance: ConnectionService;
 
     private _url!: string;
     private _port!: number;
     private _connection!: ClientWebSocket;
     private _reconnectionTimeout: number = 10000;
     private _isCheckingConnection: boolean = false;
+    isConnected: boolean = false;
+    latestMessage: string = '';
+
+    constructor() {
+        super();
+        makeObservable(this, {
+            isConnected: observable,
+            latestMessage: observable,
+            onConnect: action,
+            onDisconnect: action,
+            disconnect: action,
+            setLatestMessage: action,
+        });
+    }
 
     setDefaultTimeout() {
         this._reconnectionTimeout = 10000;
@@ -27,21 +42,8 @@ export default class ConnectionService extends Service {
         this._reconnectionTimeout = 500;
     }
 
-    @observable
-    accessor isConnected: boolean = false;
-
-    @observable
-    accessor latestMessage: string = '';
-
-    static get instance() {
-        if (!this._instance) {
-            this._instance = new ConnectionService();
-        }
-        return this._instance;
-    }
-
-    private constructor() {
-        super();
+    setSuspendedTimeout() {
+        this._reconnectionTimeout = 30000;
     }
 
     init(url: string = DEFAULT_URL, port: number = DEFAULT_PORT) {
@@ -50,26 +52,21 @@ export default class ConnectionService extends Service {
         this._connection = new ClientWebSocket(
             this._url,
             this._port,
-            this._onConnect.bind(this),
-            this._onDisconnect.bind(this),
+            this.onConnect.bind(this),
+            this.onDisconnect.bind(this),
             this._onMessage.bind(this)
         );
         this.isRunning = true;
+        console.log(`Initializing ${this.serviceName}...`);
     }
 
-    @action
-    private _onConnect() {
+    onConnect() {
         console.log('Connected');
         this.isConnected = true;
     }
 
-    @action
-    async _onDisconnect() {
+    async onDisconnect() {
         console.log('Disconnected');
-        if (!ForegroundService.instance.isRunning) {
-            return;
-        }
-
         // Handle reconnection timeout reset
         const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -86,8 +83,8 @@ export default class ConnectionService extends Service {
                 // Disconnect after n seconds if the connection is not re-established
                 await sleep(5000);
 
-                if (!ConnectionService.instance._connection!.isConnected()) {
-                    ConnectionService.instance.isConnected = false;
+                if (!this._connection!.isConnected()) {
+                    this.isConnected = false;
                     this.setDefaultTimeout();
                 }
             } finally {
@@ -103,7 +100,6 @@ export default class ConnectionService extends Service {
         this._connection!.connect();
     }
 
-    @action
     setLatestMessage(message: string) {
         this.latestMessage = message;
     }
@@ -119,6 +115,7 @@ export default class ConnectionService extends Service {
 
     suspendServer() {
         console.log('Sending suspend command...');
+        this.setSuspendedTimeout();
         this.sendMessage('{"command":"suspend"}');
         this._connection!.disconnect();
     }
