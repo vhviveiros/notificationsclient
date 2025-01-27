@@ -1,40 +1,33 @@
-import {action, observe, when} from 'mobx';
+import 'reflect-metadata';
+import {observe, when} from 'mobx';
 import Service from './Service.ts';
-import NotificationsService from './NotificationsService.ts';
 import ConnectionService from './ConnectionService.ts';
 import BatteryState from '../state/BatteryState.ts';
-import MainService from './MainService.ts';
+import {inject, singleton} from 'tsyringe';
+import {TYPES} from '../../tsyringe.types.ts';
 
+@singleton()
 export default class ForegroundService extends Service {
     serviceName: string = 'ForegroundService';
-    private static _instance: ForegroundService;
 
-    private constructor() {
+    constructor(
+        @inject(TYPES.ConnectionService) private _connectionService: ConnectionService,
+        @inject(TYPES.BatteryState) private _batteryState: BatteryState,
+    ) {
         super();
     }
 
-    static get instance() {
-        if (!this._instance) {
-            console.log('Creating new ForegroundService instance');
-            this._instance = new ForegroundService();
-        } else {
-            console.log('Using existing ForegroundService instance');
-        }
-        return this._instance;
-    }
-
-    init() {
-        this.disposerList.push(observe(ConnectionService.instance, 'latestMessage', (newMessage) => {
+    async init() {
+        this.disposerList.push(observe(this._connectionService, 'latestMessage', (newMessage) => {
             this._onMessage(newMessage.newValue);
         }, true));
-        NotificationsService.instance.registerForegroundService(this._runnable);
-        super.init();
+        this.isRunning = true;
+        console.log(`${this.serviceName} has started.`);
     }
 
-    @action
-    private _runnable() {
+    runnable() {
         return new Promise<void>((_, reject) => {
-            when(() => !ForegroundService.instance.isRunning, () => {
+            when(() => !this.isRunning, () => {
                 reject();
             });
             this.isRunning = true;
@@ -51,8 +44,8 @@ export default class ForegroundService extends Service {
             if (!data) return;
 
             Object.values(data.connMessage).forEach((serviceState: any) => {
-                if (serviceState.serviceName === BatteryState.instance.serviceName) {
-                    BatteryState.instance.setState(serviceState.serviceState);
+                if (serviceState.serviceName === this._batteryState.serviceName) {
+                    this._batteryState.setState(serviceState.serviceState);
                 }
             });
         };
@@ -60,8 +53,8 @@ export default class ForegroundService extends Service {
         const onServiceUpdate = (data?: { serviceName: string; newState: any }) => {
             if (!data) return;
 
-            if (data.serviceName === BatteryState.instance.serviceName) {
-                BatteryState.instance.setState(data.newState);
+            if (data.serviceName === this._batteryState.serviceName) {
+                this._batteryState.setState(data.newState);
             }
         };
 

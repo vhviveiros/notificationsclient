@@ -1,24 +1,30 @@
-import notifee, {AndroidImportance, AuthorizationStatus, AndroidVisibility, EventType} from '@notifee/react-native';
+import notifee, {AndroidImportance, AndroidVisibility, AuthorizationStatus, EventType} from '@notifee/react-native';
 import Service from './Service.ts';
 import BatteryState from '../state/BatteryState.ts';
 import {observe} from 'mobx';
 import ConnectionService from './ConnectionService.ts';
 import ForegroundService from './ForegroundService.ts';
+import {inject, singleton} from 'tsyringe';
+import {TYPES} from '../../tsyringe.types.ts';
 
+@singleton()
 export default class NotificationsService extends Service {
     serviceName: string = 'NotificationsService';
-    private static _instance: NotificationsService;
     private _persistentChannel!: string;
 
-    private constructor() {
+    constructor(
+        @inject(TYPES.BatteryState) private _batteryState: BatteryState,
+        @inject(TYPES.ConnectionService) private _connectionService: ConnectionService,
+        @inject(TYPES.ForegroundService) private _foregroundService: ForegroundService
+    ) {
         super();
     }
 
-    static get instance() {
-        if (!this._instance) {
-            this._instance = new NotificationsService();
-        }
-        return this._instance;
+    init() {
+        this.registerForegroundService().then(_ => {
+            this.isRunning = true;
+            console.log(`${this.serviceName} has started.`);
+        });
     }
 
     async requestPermission() {
@@ -29,8 +35,8 @@ export default class NotificationsService extends Service {
     async registerBackgroundEvents() {
         notifee.onBackgroundEvent(async ({type, detail}) => {
             const events: Record<string, () => void> = {
-                'suspend': () => ConnectionService.instance.suspendServer(),
-                'awake': () => ConnectionService.instance.awakeServer(),
+                'suspend': () => this._connectionService.suspendServer(),
+                'awake': () => this._connectionService.awakeServer(),
                 'dismiss': async () => {
                     console.log('Dismiss pressed');
                     this.stop();
@@ -44,8 +50,9 @@ export default class NotificationsService extends Service {
         });
     }
 
-    async registerForegroundService(runnable: () => Promise<void>) {
+    async registerForegroundService() {
         await this.displayPersistentNotification();
+        const runnable = this._foregroundService.runnable;
         notifee.registerForegroundService(() => {
             return new Promise(async () => {
                 await this.registerBackgroundEvents();
@@ -57,8 +64,8 @@ export default class NotificationsService extends Service {
 
 
     watchStateChanges() {
-        const batteryState = BatteryState.instance;
-        const connectionService = ConnectionService.instance;
+        const batteryState = this._batteryState;
+        const connectionService = this._connectionService;
 
         this.disposerList.push(
             observe(connectionService, () => {
@@ -157,13 +164,11 @@ export default class NotificationsService extends Service {
             });
         }
 
-        // const batteryState = BatteryState.instance;
-        const connectionService = ConnectionService.instance;
-
-        const isConnected = connectionService.isConnected;
+        // const batteryState = this._batteryState;
+        const isConnected = this._connectionService.isConnected;
         const batteryInfo = {
-            batteryLevel: BatteryState.instance.batteryLevel,
-            isCharging: BatteryState.instance.isCharging,
+            batteryLevel: this._batteryState.batteryLevel,
+            isCharging: this._batteryState.isCharging,
         };
 
         const title = 'Server Status';
@@ -178,8 +183,8 @@ export default class NotificationsService extends Service {
     stop() {
         notifee.cancelAllNotifications();
         notifee.stopForegroundService();
-        ForegroundService.instance.stop();
-        ConnectionService.instance.stop();
+        this._foregroundService.stop();
+        this._connectionService.stop();
         super.stop();
     }
 }

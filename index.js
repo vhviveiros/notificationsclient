@@ -1,11 +1,12 @@
 /**
  * @format
  */
-
-import { AppRegistry } from 'react-native';
+import 'reflect-metadata';
+import {AppRegistry} from 'react-native';
 import App from './src/App';
-import { name as appName } from './app.json';
-import MainService from './src/services/MainService';
+import {name as appName} from './app.json';
+import {container} from './tsyringe.dependencies';
+import {TYPES} from './tsyringe.types';
 
 // if (!__DEV__) {
 //     console.log = () => {};
@@ -14,8 +15,5 @@ import MainService from './src/services/MainService';
 //     console.info = () => {};
 //     console.debug = () => {};
 // }
-
-global.Buffer = require('buffer').Buffer;
-
-MainService.instance.init();
+container.resolve(TYPES.NotificationsService);
 AppRegistry.registerComponent(appName, () => App);
