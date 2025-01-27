@@ -9,7 +9,6 @@ import {TYPES} from '../../tsyringe.types.ts';
 
 @singleton()
 export default class NotificationsService extends Service {
-    serviceName: string = 'NotificationsService';
     private _persistentChannel!: string;
 
     constructor(
@@ -17,14 +16,11 @@ export default class NotificationsService extends Service {
         @inject(TYPES.ConnectionService) private _connectionService: ConnectionService,
         @inject(TYPES.ForegroundService) private _foregroundService: ForegroundService
     ) {
-        super();
+        super('NotificationsService');
     }
 
     init() {
-        this.registerForegroundService().then(_ => {
-            this.isRunning = true;
-            console.log(`${this.serviceName} has started.`);
-        });
+        this.registerForegroundService();
     }
 
     async requestPermission() {
@@ -64,7 +60,6 @@ export default class NotificationsService extends Service {
 
 
     watchStateChanges() {
-        const batteryState = this._batteryState;
         const connectionService = this._connectionService;
 
         this.disposerList.push(
@@ -77,9 +72,9 @@ export default class NotificationsService extends Service {
         );
 
         this.disposerList.push(
-            observe(batteryState, () => {
+            observe(this._batteryState, () => {
                 this.displayPersistentNotification();
-                if (batteryState.hasInit() && !batteryState.isCharging) {
+                if (this._batteryState.hasInit() && !this._batteryState.isCharging) {
                     this.displayAlertNotification('Battery is discharging.');
                 }
             }, false)

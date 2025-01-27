@@ -5,24 +5,39 @@ import ConnectionService from './ConnectionService.ts';
 import BatteryState from '../state/BatteryState.ts';
 import {inject, singleton} from 'tsyringe';
 import {TYPES} from '../../tsyringe.types.ts';
+import MobxBaseState from '../state/MobxBaseState.ts';
+import MobxState from '../state/MobxState.ts';
 
 @singleton()
 export default class ForegroundService extends Service {
-    serviceName: string = 'ForegroundService';
+    private _stateRegistry: Map<string, MobxState>;
 
     constructor(
         @inject(TYPES.ConnectionService) private _connectionService: ConnectionService,
-        @inject(TYPES.BatteryState) private _batteryState: BatteryState,
+        @inject(TYPES.BatteryState) batteryState: BatteryState,
     ) {
-        super();
+        super('ForegroundService');
+        this._stateRegistry = new Map<string, MobxState>();
+        this._stateRegistry.set(batteryState.serviceName, batteryState);
     }
 
-    async init() {
+    init() {
+        if (this._connectionService.latestMessage) {
+            const batteryInfo = JSON.parse(this._connectionService.latestMessage).result.state;
+            const batteryLevel = batteryInfo.percentage;
+            const isCharging = batteryInfo.isDischarging === false;
+            const chargingState = batteryInfo.state;
+
+            this._stateRegistry.get(TYPES.BatteryState.description!)!.setState({
+                batteryLevel,
+                isCharging,
+                chargingState,
+            });
+        }
+
         this.disposerList.push(observe(this._connectionService, 'latestMessage', (newMessage) => {
             this._onMessage(newMessage.newValue);
         }, true));
-        this.isRunning = true;
-        console.log(`${this.serviceName} has started.`);
     }
 
     runnable() {
@@ -42,20 +57,27 @@ export default class ForegroundService extends Service {
 
         const onConnMessage = (data?: Record<string, { serviceName: string; serviceState: any }>) => {
             if (!data) return;
+            console.log(`Found connMessage: ${JSON.stringify(data)}`);
+            try {
+                const services = JSON.parse(message).connMessage as Array<{
+                    serviceName: string;
+                    serviceState: MobxBaseState;
+                }>;
 
-            Object.values(data.connMessage).forEach((serviceState: any) => {
-                if (serviceState.serviceName === this._batteryState.serviceName) {
-                    this._batteryState.setState(serviceState.serviceState);
-                }
-            });
+                console.log(`Services: ${JSON.stringify(services)}`);
+
+                services.forEach((service) => {
+                    this._stateRegistry.get(service.serviceName)?.setState(service.serviceState);
+                });
+            } catch (e) {
+                console.error(e);
+            }
         };
 
         const onServiceUpdate = (data?: { serviceName: string; newState: any }) => {
             if (!data) return;
-
-            if (data.serviceName === this._batteryState.serviceName) {
-                this._batteryState.setState(data.newState);
-            }
+            console.log(`Found serviceUpdate: ${JSON.stringify(data)}`);
+            this._stateRegistry.get(data.serviceName)?.setState(data.newState);
         };
 
         try {

@@ -12,8 +12,6 @@ const {Wol} = NativeModules;
 
 @singleton()
 export default class ConnectionService extends Service {
-    serviceName: string = 'ConnectionService';
-
     private _url!: string;
     private _port!: number;
     private _connection!: ClientWebSocket;
@@ -23,7 +21,7 @@ export default class ConnectionService extends Service {
     latestMessage: string = '';
 
     constructor() {
-        super();
+        super('ConnectionService');
         makeObservable(this, {
             isConnected: observable,
             latestMessage: observable,
@@ -56,13 +54,12 @@ export default class ConnectionService extends Service {
             this.onDisconnect.bind(this),
             this._onMessage.bind(this)
         );
-        this.isRunning = true;
-        console.log(`Initializing ${this.serviceName}...`);
     }
 
     onConnect() {
         console.log('Connected');
         this.isConnected = true;
+        this.setQuickReconnectTimeout();
     }
 
     async onDisconnect() {
@@ -102,6 +99,7 @@ export default class ConnectionService extends Service {
 
     setLatestMessage(message: string) {
         this.latestMessage = message;
+        console.log(`ConnService Latest message: ${message}`);
     }
 
     sendMessage(message: string) {

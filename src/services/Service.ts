@@ -1,17 +1,23 @@
 import {action, makeObservable, observable} from 'mobx';
 
 abstract class Service {
-    abstract serviceName: string;
+    serviceName: string;
     disposerList: (() => void)[] = [];
     isRunning: boolean = false;
 
-    constructor() {
+    protected constructor(serviceName: string) {
+        this.serviceName = serviceName;
+        console.log(`Initializing ${this.serviceName}...`);
         makeObservable(this, {
             isRunning: observable,
             stop: action,
         });
-
-        this.init();
+        // Defer init() to ensure child class dependencies are injected first
+        queueMicrotask(async () => {
+            await this.init();
+            this.isRunning = true;
+            console.log(`${this.serviceName} has started.`);
+        });
     }
 
     abstract init(): void;

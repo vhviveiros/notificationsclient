@@ -18,18 +18,10 @@ export default class BatteryState implements MobxState, BatteryInfo {
     chargingState: string;
 
     constructor() {
-        // console.log('BatteryState: Last message:', lastMessage);
-        // if (lastMessage) {
-        //     const batteryInfo = JSON.parse(lastMessage).result.state;
-        //     this.batteryLevel = batteryInfo.percentage;
-        //     this.isCharging = batteryInfo.isDischarging === false;
-        //     this.chargingState = batteryInfo.state;
-        // } else {
         this.batteryLevel = -1;
         this.isCharging = false;
         this.chargingState = 'unknown';
         console.log('BatteryState: No last message');
-        // }
         makeAutoObservable(this);
     }
 
@@ -37,6 +29,7 @@ export default class BatteryState implements MobxState, BatteryInfo {
         this.batteryLevel = batteryInfo.batteryLevel;
         this.isCharging = batteryInfo.isCharging;
         this.chargingState = batteryInfo.chargingState;
+        console.log(`Changed battery state to ${JSON.stringify(batteryInfo)}`);
     }
 
     hasInit = () => this.batteryLevel !== -1 && this.chargingState !== 'unknown';
