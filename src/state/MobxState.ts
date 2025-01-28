@@ -1,7 +1,7 @@
 import MobxBaseState from './MobxBaseState.ts';
 
 interface MobxState {
-    readonly serviceName: string;
+    readonly identifier: string;
 
     setState(state: MobxBaseState): void;
 

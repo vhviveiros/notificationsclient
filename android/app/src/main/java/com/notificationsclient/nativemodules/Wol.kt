@@ -13,38 +13,34 @@ class Wol(reactContext: ReactApplicationContext) : ReactContextBaseJavaModule(re
     override fun getName(): String = "Wol"
 
     private fun createMagicPacket(macAddress: String): ByteArray {
-        val macBytes = macAddress.split(":").map { it.toInt(16).toByte() }.toByteArray()
-        val header = ByteArray(6) { 0xFF.toByte() }
-        val magicPacket = ByteArray(102)
-        System.arraycopy(header, 0, magicPacket, 0, 6)
-        for (i in 0..15) {
-            System.arraycopy(macBytes, 0, magicPacket, 6 + i * 6, 6)
-        }
-        return magicPacket
+        val cleanedMac = macAddress.replace("[:\\-]".toRegex(), "")
+        require(cleanedMac.length == 12) { "Invalid MAC address format" }
+
+        val macBytes = cleanedMac.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
+
+        // Create magic packet with proper array construction
+        return ByteArray(6) { 0xFF.toByte() } + ByteArray(16 * macBytes.size) { i -> macBytes[i % macBytes.size] }
     }
 
     @ReactMethod
-    private fun sendWolPacket(macAddress: String, targetIp: String) {
+    fun sendWolPacket(macAddress: String, targetIp: String) {
         try {
             val magicPacket = createMagicPacket(macAddress)
+            val address = InetAddress.getByName(targetIp)
+            val port = 9 // Default Wake-on-LAN port
 
-            // Create and send the DatagramPacket
-            intArrayOf(7, 9).forEach { port ->
+            DatagramSocket().use { socket ->
                 val packet = DatagramPacket(
                     magicPacket,
                     magicPacket.size,
-                    InetAddress.getByName(targetIp),
+                    address,
                     port
                 )
-
-                Log.d("Wol", "Sending magic packet to $targetIp:$port")
-                val socket = DatagramSocket()
                 socket.send(packet)
-                socket.close()
+                Log.d("WOL", "Magic packet sent to $macAddress via $targetIp")
             }
         } catch (e: Exception) {
-            Log.e("Wol", "Exception caught when sending wol packet:")
-            e.printStackTrace()
+            Log.e("WOL", "Error sending Wake-on-LAN packet", e)
         }
     }
 }

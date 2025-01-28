@@ -1,4 +1,3 @@
-import 'reflect-metadata';
 import {ClientWebSocket} from '../api/ClientWebSocket.ts';
 import {action, makeObservable, observable} from 'mobx';
 import Service from './Service.ts';
@@ -65,7 +64,7 @@ export default class ConnectionService extends Service {
     async onDisconnect() {
         console.log('Disconnected');
         // Handle reconnection timeout reset
-        const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+        const sleep = (ms: number) => new Promise(resolve => setTimeout((resolve as () => void), ms));
 
         const checkConnection = async () => {
             if (this._isCheckingConnection) {

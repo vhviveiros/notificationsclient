@@ -1,4 +1,3 @@
-import 'reflect-metadata';
 import {observe, when} from 'mobx';
 import Service from './Service.ts';
 import ConnectionService from './ConnectionService.ts';
@@ -18,7 +17,7 @@ export default class ForegroundService extends Service {
     ) {
         super('ForegroundService');
         this._stateRegistry = new Map<string, MobxState>();
-        this._stateRegistry.set(batteryState.serviceName, batteryState);
+        this._stateRegistry.set(batteryState.identifier, batteryState);
     }
 
     init() {
@@ -35,7 +34,7 @@ export default class ForegroundService extends Service {
             });
         }
 
-        this.disposerList.push(observe(this._connectionService, 'latestMessage', (newMessage) => {
+        this.disposalCallbacks.push(observe(this._connectionService, 'latestMessage', (newMessage) => {
             this._onMessage(newMessage.newValue);
         }, true));
     }
@@ -82,8 +81,8 @@ export default class ForegroundService extends Service {
 
         try {
             //Currently, there's two possibilities:
-            // {serviceUpdate:{serviceName, newState}}
-            // {connMessage:{{serviceName, serviceState}, {serviceName, serviceState}, ...}}
+            // {serviceUpdate:{identifier, newState}}
+            // {connMessage:{{identifier, serviceState}, {identifier, serviceState}, ...}}
             const data = JSON.parse(message);
             onServiceUpdate(data?.serviceName);
             onConnMessage(data?.connMessage);

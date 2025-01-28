@@ -1,35 +1,66 @@
-import {action, makeObservable, observable} from 'mobx';
+import { action, makeObservable, observable } from 'mobx';
 
+declare function queueMicrotask(callback: () => void): void;
+
+/**
+ * Abstract base class for services providing lifecycle management and observable state.
+ * Subclasses should implement initialization logic in `init()` and cleanup in `stop()`.
+ */
 abstract class Service {
-    serviceName: string;
-    disposerList: (() => void)[] = [];
+    /**
+     * Unique identifier for the service, used for logging purposes.
+     */
+    readonly identifier: string;
+
+    /**
+     * List of cleanup callbacks to execute when the service stops.
+     */
+    protected disposalCallbacks: Array<() => void> = [];
+
+    /**
+     * Observable flag indicating whether the service is currently running.
+     */
     isRunning: boolean = false;
 
+    /**
+     * Constructs a new Service instance.
+     * @param serviceName - Identifier used in diagnostic messages
+     * @protected - Only accessible by subclasses (abstract class pattern)
+     */
     protected constructor(serviceName: string) {
-        this.serviceName = serviceName;
-        console.log(`Initializing ${this.serviceName}...`);
+        this.identifier = serviceName;
+        console.log(`Initializing ${this.identifier}...`);
         makeObservable(this, {
             isRunning: observable,
             stop: action,
         });
-        // Defer init() to ensure child class dependencies are injected first
-        queueMicrotask(async () => {
-            await this.init();
+        // Defer initialization to ensure dependency injection completes
+        queueMicrotask(() => {
+            this.init();
             this.isRunning = true;
-            console.log(`${this.serviceName} has started.`);
+            console.log(`${this.identifier} has started.`);
         });
     }
 
-    abstract init(): void;
+    /**
+     * Abstract initialization method must be implemented by subclasses.
+     * Implement setup logic like event listeners or API calls here.
+     */
+    protected abstract init(): void;
 
-    stop(..._: any[]): void {
-        if (!this.isRunning) {
-            return;
-        }
+    /**
+     * Stops the service and executes all cleanup callbacks.
+     * Can be extended by subclasses for additional cleanup logic.
+     * @param _args - Optional parameters for subclass implementations
+     */
+    stop(..._args: unknown[]): void {
+        if (!this.isRunning) return;
+
         this.isRunning = false;
-        this.disposerList.forEach(dispose => dispose());
-        this.disposerList = [];
-        console.log(`${this.serviceName} has stopped.`);
+        // Execute all cleanup callbacks
+        this.disposalCallbacks.forEach(disposal => disposal());
+        this.disposalCallbacks = [];
+        console.log(`${this.identifier} has stopped.`);
     }
 }
 

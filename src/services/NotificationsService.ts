@@ -62,7 +62,7 @@ export default class NotificationsService extends Service {
     watchStateChanges() {
         const connectionService = this._connectionService;
 
-        this.disposerList.push(
+        this.disposalCallbacks.push(
             observe(connectionService, () => {
                 this.displayPersistentNotification();
                 if (!connectionService.isConnected) {
@@ -71,7 +71,7 @@ export default class NotificationsService extends Service {
             }, false)
         );
 
-        this.disposerList.push(
+        this.disposalCallbacks.push(
             observe(this._batteryState, () => {
                 this.displayPersistentNotification();
                 if (this._batteryState.hasInit() && !this._batteryState.isCharging) {
