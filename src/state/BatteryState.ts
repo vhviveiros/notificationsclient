@@ -20,7 +20,6 @@ export default class BatteryState implements MobxState, BatteryInfo {
         this.batteryLevel = -1;
         this.isCharging = false;
         this.chargingState = 'unknown';
-        console.log('BatteryState: No last message');
         makeAutoObservable(this);
     }
 

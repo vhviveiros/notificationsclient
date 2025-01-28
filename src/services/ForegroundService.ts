@@ -22,16 +22,7 @@ export default class ForegroundService extends Service {
 
     init() {
         if (this._connectionService.latestMessage) {
-            const batteryInfo = JSON.parse(this._connectionService.latestMessage).result.state;
-            const batteryLevel = batteryInfo.percentage;
-            const isCharging = batteryInfo.isDischarging === false;
-            const chargingState = batteryInfo.state;
-
-            this._stateRegistry.get(TYPES.BatteryState.description!)!.setState({
-                batteryLevel,
-                isCharging,
-                chargingState,
-            });
+            this._onMessage(this._connectionService.latestMessage);
         }
 
         this.disposalCallbacks.push(observe(this._connectionService, 'latestMessage', (newMessage) => {
