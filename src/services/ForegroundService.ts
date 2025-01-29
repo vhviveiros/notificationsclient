@@ -5,19 +5,19 @@ import BatteryState from '../state/BatteryState.ts';
 import {inject, singleton} from 'tsyringe';
 import {TYPES} from '../../tsyringe.types.ts';
 import MobxBaseState from '../state/MobxBaseState.ts';
-import MobxState from '../state/MobxState.ts';
+import {TypeSafeStateRegistry} from '../etc/typeSafeRegistry.ts';
 
 @singleton()
 export default class ForegroundService extends Service {
-    private _stateRegistry: Map<string, MobxState>;
+    private _stateRegistry: TypeSafeStateRegistry;
 
     constructor(
         @inject(TYPES.ConnectionService) private _connectionService: ConnectionService,
         @inject(TYPES.BatteryState) batteryState: BatteryState,
     ) {
-        super('ForegroundService');
-        this._stateRegistry = new Map<string, MobxState>();
-        this._stateRegistry.set(batteryState.identifier, batteryState);
+        super(TYPES.ForegroundService);
+        this._stateRegistry = new TypeSafeStateRegistry();
+        this._stateRegistry.set(TYPES.BatteryState, batteryState);
     }
 
     init() {
@@ -57,7 +57,7 @@ export default class ForegroundService extends Service {
                 console.log(`Services: ${JSON.stringify(services)}`);
 
                 services.forEach((service) => {
-                    this._stateRegistry.get(service.serviceName)?.setState(service.serviceState);
+                    this._stateRegistry.get(Symbol.for(service.serviceName))?.setState(service.serviceState);
                 });
             } catch (e) {
                 console.error(e);
@@ -67,7 +67,7 @@ export default class ForegroundService extends Service {
         const onServiceUpdate = (data?: { serviceName: string; newState: any }) => {
             if (!data) return;
             console.log(`Found serviceUpdate: ${JSON.stringify(data)}`);
-            this._stateRegistry.get(data.serviceName)?.setState(data.newState);
+            this._stateRegistry.get(Symbol.for(data.serviceName))?.setState(data.newState);
         };
 
         try {

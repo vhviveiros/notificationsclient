@@ -3,6 +3,7 @@ import {action, makeObservable, observable} from 'mobx';
 import Service from './Service.ts';
 import {NativeModules} from 'react-native';
 import {singleton} from 'tsyringe';
+import {TYPES} from '../../tsyringe.types.ts';
 
 export const DEFAULT_URL: string = '192.168.1.2';
 export const DEFAULT_PORT: number = 5445;
@@ -20,7 +21,7 @@ export default class ConnectionService extends Service {
     latestMessage: string = '';
 
     constructor() {
-        super('ConnectionService');
+        super(TYPES.ConnectionService);
         makeObservable(this, {
             isConnected: observable,
             latestMessage: observable,

@@ -10,7 +10,7 @@ abstract class Service {
     /**
      * Unique identifier for the service, used for logging purposes.
      */
-    readonly identifier: string;
+    readonly identifier: Symbol;
 
     /**
      * List of cleanup callbacks to execute when the service stops.
@@ -27,9 +27,9 @@ abstract class Service {
      * @param serviceName - Identifier used in diagnostic messages
      * @protected - Only accessible by subclasses (abstract class pattern)
      */
-    protected constructor(serviceName: string) {
+    protected constructor(serviceName: Symbol) {
         this.identifier = serviceName;
-        console.log(`Initializing ${this.identifier}...`);
+        console.log(`Initializing ${this.identifier.description}...`);
         makeObservable(this, {
             isRunning: observable,
             stop: action,
@@ -38,7 +38,7 @@ abstract class Service {
         queueMicrotask(() => {
             this.init();
             this.isRunning = true;
-            console.log(`${this.identifier} has started.`);
+            console.log(`${this.identifier.description} has started.`);
         });
     }
 
@@ -60,7 +60,7 @@ abstract class Service {
         // Execute all cleanup callbacks
         this.disposalCallbacks.forEach(disposal => disposal());
         this.disposalCallbacks = [];
-        console.log(`${this.identifier} has stopped.`);
+        console.log(`${this.identifier.description} has stopped.`);
     }
 }
 

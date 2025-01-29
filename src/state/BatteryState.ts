@@ -2,6 +2,7 @@ import MobxState from './MobxState.ts';
 import MobxBaseState from './MobxBaseState.ts';
 import {makeAutoObservable} from 'mobx';
 import {singleton} from 'tsyringe';
+import {TYPES} from '../../tsyringe.types.ts';
 
 export interface BatteryInfo extends MobxBaseState {
     batteryLevel: number;
@@ -11,7 +12,7 @@ export interface BatteryInfo extends MobxBaseState {
 
 @singleton()
 export default class BatteryState implements MobxState, BatteryInfo {
-    readonly identifier: string = 'BatteryService';
+    readonly identifier: Symbol = TYPES.BatteryState;
     batteryLevel: number;
     isCharging: boolean;
     chargingState: string;

@@ -6,17 +6,25 @@ import ConnectionService from './ConnectionService.ts';
 import ForegroundService from './ForegroundService.ts';
 import {inject, singleton} from 'tsyringe';
 import {TYPES} from '../../tsyringe.types.ts';
+import {TypeSafeServiceRegistry, TypeSafeStateRegistry} from '../etc/typeSafeRegistry.ts';
 
 @singleton()
 export default class NotificationsService extends Service {
     private _persistentChannel!: string;
+    private _stateRegistry: TypeSafeStateRegistry;
+    private _serviceRegistry: TypeSafeServiceRegistry;
 
     constructor(
-        @inject(TYPES.BatteryState) private _batteryState: BatteryState,
-        @inject(TYPES.ConnectionService) private _connectionService: ConnectionService,
-        @inject(TYPES.ForegroundService) private _foregroundService: ForegroundService
+        @inject(TYPES.BatteryState) batteryState: BatteryState,
+        @inject(TYPES.ConnectionService) connectionService: ConnectionService,
+        @inject(TYPES.ForegroundService) foregroundService: ForegroundService
     ) {
-        super('NotificationsService');
+        super(TYPES.NotificationsService);
+        this._serviceRegistry = new TypeSafeServiceRegistry();
+        this._stateRegistry = new TypeSafeStateRegistry();
+        this._stateRegistry.set(TYPES.BatteryState, batteryState);
+        this._serviceRegistry.set(TYPES.ConnectionService, connectionService);
+        this._serviceRegistry.set(TYPES.ForegroundService, foregroundService);
     }
 
     init() {
@@ -29,10 +37,12 @@ export default class NotificationsService extends Service {
     }
 
     async registerBackgroundEvents() {
+        console.log('NotificationService: Registering background events...');
         notifee.onBackgroundEvent(async ({type, detail}) => {
+            const connectionService = this._serviceRegistry.get<ConnectionService>(TYPES.ConnectionService);
             const events: Record<string, () => void> = {
-                'suspend': () => this._connectionService.suspendServer(),
-                'awake': () => this._connectionService.awakeServer(),
+                'suspend': () => connectionService.suspendServer(),
+                'awake': () => connectionService.awakeServer(),
                 'dismiss': async () => {
                     console.log('Dismiss pressed');
                     this.stop();
@@ -47,21 +57,26 @@ export default class NotificationsService extends Service {
     }
 
     async registerForegroundService() {
-        await this.displayPersistentNotification();
-        const runnable = this._foregroundService.runnable;
+        console.log('NotificationService: Registering foreground service...');
+        const foregroundService = this._serviceRegistry.get<ForegroundService>(TYPES.ForegroundService);
+        const runnable = foregroundService.runnable;
         notifee.registerForegroundService(() => {
             return new Promise(async () => {
+                console.log('NotificationService: Starting foreground service...');
                 await this.registerBackgroundEvents();
                 await runnable();
             });
         });
+        await this.displayPersistentNotification();
         this.watchStateChanges();
     }
 
 
     watchStateChanges() {
-        const connectionService = this._connectionService;
+        const connectionService = this._serviceRegistry.get<ConnectionService>(TYPES.ConnectionService);
+        const batteryState = this._stateRegistry.get<BatteryState>(TYPES.BatteryState);
 
+        console.log('NotificationService: Watching state changes...');
         this.disposalCallbacks.push(
             observe(connectionService, () => {
                 this.displayPersistentNotification();
@@ -72,9 +87,9 @@ export default class NotificationsService extends Service {
         );
 
         this.disposalCallbacks.push(
-            observe(this._batteryState, () => {
+            observe(batteryState, () => {
                 this.displayPersistentNotification();
-                if (this._batteryState.hasInit() && !this._batteryState.isCharging) {
+                if (batteryState.hasInit() && !batteryState.isCharging) {
                     this.displayAlertNotification('Battery is discharging.');
                 }
             }, false)
@@ -110,6 +125,7 @@ export default class NotificationsService extends Service {
     }
 
     async displayPersistentNotification() {
+        console.log('Displaying persistent notification...');
         if (!(await this.requestPermission())) {
             return;
         }
@@ -159,11 +175,12 @@ export default class NotificationsService extends Service {
             });
         }
 
-        // const batteryState = this._batteryState;
-        const isConnected = this._connectionService.isConnected;
+        const connectionService = this._serviceRegistry.get<ConnectionService>(TYPES.ConnectionService);
+        const batteryState = this._stateRegistry.get<BatteryState>(TYPES.BatteryState);
+        const isConnected = connectionService.isConnected;
         const batteryInfo = {
-            batteryLevel: this._batteryState.batteryLevel,
-            isCharging: this._batteryState.isCharging,
+            batteryLevel: batteryState.batteryLevel,
+            isCharging: batteryState.isCharging,
         };
 
         const title = 'Server Status';
@@ -178,8 +195,7 @@ export default class NotificationsService extends Service {
     stop() {
         notifee.cancelAllNotifications();
         notifee.stopForegroundService();
-        this._foregroundService.stop();
-        this._connectionService.stop();
+        this._serviceRegistry.forEach(service => service.stop());
         super.stop();
     }
 }
