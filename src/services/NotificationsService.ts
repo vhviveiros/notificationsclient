@@ -91,7 +91,7 @@ export default class NotificationsService extends Service {
 
         console.log('NotificationService: Watching state changes...');
         this.disposalCallbacks.push(
-            observe(connectionService, () => {
+            observe(connectionService, 'isConnected', () => {
                 this.displayPersistentNotification();
                 if (!connectionService.isConnected) {
                     this.displayAlertNotification('Disconnected from server.');
