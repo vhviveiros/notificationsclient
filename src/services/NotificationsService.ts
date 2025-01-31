@@ -100,9 +100,12 @@ export default class NotificationsService extends Service {
         );
 
         this.disposalCallbacks.push(
-            observe(batteryState, () => {
+            observe(batteryState, (change) => {
                 this.displayPersistentNotification();
-                if (batteryState.hasInit() && !batteryState.isCharging) {
+                if (change.type === 'update' &&
+                    change.name === 'isCharging' &&
+                    change.oldValue === true &&
+                    batteryState.hasInit()) {
                     this.displayAlertNotification('Battery is discharging.');
                 }
             }, false)

@@ -73,7 +73,7 @@ export default class ForegroundService extends Service {
             // {serviceUpdate:{identifier, newState}}
             // {connMessage:{{identifier, serviceState}, {identifier, serviceState}, ...}}
             const data = JSON.parse(message);
-            onServiceUpdate(data?.serviceName);
+            onServiceUpdate(data?.serviceUpdate);
             onConnMessage(data?.connMessage);
         } catch (error) {
             if (error instanceof SyntaxError) {

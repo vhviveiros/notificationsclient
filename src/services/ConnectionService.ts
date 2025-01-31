@@ -78,7 +78,7 @@ export default class ConnectionService extends Service {
      * @param port - Server port, defaults to DEFAULT_PORT
      */
     init(url: string = DEFAULT_URL, port: number = DEFAULT_PORT) {
-        this.connect(url, port);
+        this.connect(__DEV__ ? '192.168.1.4' : url, port);
     }
 
     /**
@@ -88,7 +88,6 @@ export default class ConnectionService extends Service {
      */
     private connect(url: string, port: number) {
         console.log(`ConnectionService: Connecting to ${url}:${port}`);
-        // this._url = __DEV__ ? '192.168.1.4' : url;
         this._url = url;
         this._port = port;
         this._connection = new ClientWebSocket(

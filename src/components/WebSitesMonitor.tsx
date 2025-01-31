@@ -4,7 +4,7 @@ import { ScrollView, StyleProp, StyleSheet } from 'react-native';
 
 interface UrlStatusItemProps {
     url: string,
-    status: string,
+    status: 'active' | 'inactive',
 }
 
 interface WebSitesMonitorProps {
@@ -14,13 +14,13 @@ interface WebSitesMonitorProps {
 
 // @ts-ignore
 const SiteStatus = ({ statusItem }) => (
-    <View style={styles.listItemContainer}>
+    <View style={listItemIndicatorStyles.listItemContainer}>
         <View style={[
             listItemIndicatorStyles.indicator,
             // @ts-ignore
-            listItemIndicatorStyles[statusItem.state],
+            listItemIndicatorStyles[statusItem.status],
         ]} />
-        <Text style={styles.listItem}>
+        <Text style={listItemIndicatorStyles.listItem}>
             {statusItem.url}
         </Text>
     </View>
@@ -42,31 +42,42 @@ const WebSitesMonitor: React.FC<WebSitesMonitorProps> = ({ urls, style }) => {
 };
 
 const listItemIndicatorStyles = StyleSheet.create({
-    indicator: {
-        width: 18,
-        height: 18,
-        borderRadius: 6, // Half of width/height for perfect circle
-        alignSelf: 'center',
-        marginRight: 12,
+    listItemContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 12,
+        paddingRight: 12,
+        backgroundColor: '#f7fafc',
+        borderRadius: 8,
     },
-
-    active: {
-        backgroundColor: '#48bb78',
-        shadowColor: '#48bb78',
+    listItem: {
+        fontSize: 16,
+        fontWeight: '500',
+        color: '#2d3748',
+        paddingTop: 12,
+        paddingBottom: 12,
+    },
+    indicator: {
+        width: 6,
+        height: '100%',
+        marginRight: 12,
         shadowOffset: { width: 0, height: 0 },
         shadowOpacity: 0.35,
         shadowRadius: 4,
         elevation: 3,
+        borderTopLeftRadius: 8,
+        borderBottomLeftRadius: 8,
+    },
+    active: {
+        backgroundColor: '#48bb78',
+        shadowColor: '#48bb78',
     },
 
     inactive: {
         backgroundColor: '#f56565',
         shadowColor: '#f56565',
-        shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.35,
-        shadowRadius: 4,
-        elevation: 3,
     },
+
 });
 
 const styles = StyleSheet.create({
@@ -78,23 +89,9 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.1,
         shadowRadius: 8,
         elevation: 5,
-        margin: 16,
     },
     list: {
         margin: 16,
-    },
-    listItem: {
-        fontSize: 16,
-        fontWeight: '500',
-        color: '#2d3748',
-    },
-    listItemContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: 12,
-        padding: 12,
-        backgroundColor: '#f7fafc',
-        borderRadius: 8,
     },
     containerTitle: {
         margin: 16,
