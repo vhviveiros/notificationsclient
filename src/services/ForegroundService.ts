@@ -1,15 +1,16 @@
-import {observe, when} from 'mobx';
+import { observe } from 'mobx';
 import Service from './Service.ts';
 import ConnectionService from './ConnectionService.ts';
 import BatteryState from '../state/BatteryState.ts';
-import {inject, singleton} from 'tsyringe';
-import {TYPES} from '../../tsyringe.types.ts';
+import { inject, singleton } from 'tsyringe';
+import { TYPES } from '../../tsyringe.types.ts';
 import MobxBaseState from '../state/MobxBaseState.ts';
-import {TypeSafeStateRegistry} from '../etc/typeSafeRegistry.ts';
+import { TypeSafeStateRegistry } from '../etc/typeSafeRegistry.ts';
 
 @singleton()
 export default class ForegroundService extends Service {
     private _stateRegistry: TypeSafeStateRegistry;
+    private _runnableResolve?: () => void;
 
     constructor(
         @inject(TYPES.ConnectionService) private _connectionService: ConnectionService,
@@ -31,11 +32,8 @@ export default class ForegroundService extends Service {
     }
 
     runnable() {
-        return new Promise<void>((_, reject) => {
-            when(() => !this.isRunning, () => {
-                reject();
-            });
-            this.isRunning = true;
+        return new Promise<void>((resolve) => {
+            this._runnableResolve = resolve;
         });
     }
 
@@ -45,7 +43,7 @@ export default class ForegroundService extends Service {
             return;
         }
 
-        const onConnMessage = (data?: Record<string, { serviceName: string; serviceState: any }>) => {
+        const onConnMessage = (data?: Record<string, { serviceName: string; serviceState: any; }>) => {
             if (!data) return;
             console.log(`Found connMessage: ${JSON.stringify(data)}`);
             try {
@@ -64,7 +62,7 @@ export default class ForegroundService extends Service {
             }
         };
 
-        const onServiceUpdate = (data?: { serviceName: string; newState: any }) => {
+        const onServiceUpdate = (data?: { serviceName: string; newState: any; }) => {
             if (!data) return;
             console.log(`Found serviceUpdate: ${JSON.stringify(data)}`);
             this._stateRegistry.get(Symbol.for(data.serviceName))?.setState(data.newState);
@@ -82,5 +80,12 @@ export default class ForegroundService extends Service {
                 console.error('ForegroundService: Invalid message:', message);
             }
         }
+    }
+
+    stop() {
+        this._runnableResolve?.();
+        this._runnableResolve = undefined;
+        console.log(`Is there a resolve? ${this._runnableResolve ? 'Yes' : 'No'}`);
+        super.stop();
     }
 }

@@ -46,7 +46,7 @@ abstract class Service {
      * Abstract initialization method must be implemented by subclasses.
      * Implement setup logic like event listeners or API calls here.
      */
-    protected abstract init(): void;
+    abstract init(): void;
 
     /**
      * Stops the service and executes all cleanup callbacks.

@@ -1,17 +1,23 @@
-import {SafeAreaView, StyleSheet} from 'react-native';
+import { SafeAreaView, StyleSheet, Text } from 'react-native';
 import React from 'react';
-import {Typography, View} from 'react-native-ui-lib';
-import {observer} from 'mobx-react-lite';
+import { Typography, View } from 'react-native-ui-lib';
+import { observer } from 'mobx-react-lite';
 import WebSitesMonitor from './components/WebSitesMonitor.tsx';
+import MediumButton from './components/MediumButton.tsx';
+import useServices from './hooks/useServices.ts';
+import NotificationsService from './services/NotificationsService.ts';
+import { TYPES } from '../tsyringe.types.ts';
+import ConnectionService from './services/ConnectionService.ts';
+import ForegroundService from './services/ForegroundService.ts';
 
 Typography.loadTypographies({
-    h1: {fontSize: 58, fontWeight: '300', lineHeight: 80},
-    counter: {fontSize: 58, fontWeight: '300', lineHeight: 80, textAlign: 'center'},
+    h1: { fontSize: 58, fontWeight: '300', lineHeight: 80 },
+    counter: { fontSize: 58, fontWeight: '300', lineHeight: 80, textAlign: 'center' },
 });
 
 export default function App(): JSX.Element {
     return (
-        <MainContent/>
+        <MainContent />
     );
 }
 
@@ -31,36 +37,55 @@ const MainContent: React.FC = observer(() => {
         },
     ];
 
+    const services = {
+        connection: useServices<ConnectionService>(TYPES.ConnectionService),
+        foreground: useServices<ForegroundService>(TYPES.ForegroundService),
+        notifications: useServices<NotificationsService>(TYPES.NotificationsService)
+    };
+
+    const startServices = () => {
+        Object.values(services).forEach(service => service.init());
+    };
+
     return (
-        <SafeAreaView>
+        <SafeAreaView style={styles.safeArea}>
             <View style={styles.container}>
-                <WebSitesMonitor style={styles.sitesMonitor} urls={urlData}/>
+                <Text style={styles.title}>Website Monitor</Text>
+                <WebSitesMonitor style={styles.sitesMonitor} urls={urlData} />
+                <MediumButton
+                    text={'Start Monitoring'}
+                    color='#4299e1'
+                    style={styles.btn}
+                    onPress={startServices}
+                />
             </View>
         </SafeAreaView>
     );
 });
 
 const styles = StyleSheet.create({
-    display: {
-        width: '100%',
-        backgroundColor: 'red',
-        alignItems: 'center',
-        maxHeight: 400,
+    safeArea: {
+        flex: 1,
+        backgroundColor: '#f7fafc',
     },
     container: {
-        // flex: 1,
-        backgroundColor: '#fff',
-        // alignItems: 'center',
-        justifyContent: 'center',
-        flexDirection: 'row',
-        flexWrap: 'wrap',
+        flex: 1,
+        backgroundColor: '#f7fafc',
+        padding: 16,
+    },
+    title: {
+        fontSize: 32,
+        fontWeight: '700',
+        color: '#2d3748',
+        marginBottom: 24,
+        textAlign: 'center',
     },
     btn: {
-        width: '50%',
-        height: '50%',
+        alignSelf: 'center',
+        marginTop: 24,
+        width: '80%',
     },
     sitesMonitor: {
         width: '100%',
-        padding: 8,
     },
 });

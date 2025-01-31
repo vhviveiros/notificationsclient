@@ -1,7 +1,7 @@
-export class IllegalArgumentError extends Error {
+export class IllegalValueError extends Error {
     constructor(message: string) {
         super(message);
-        this.name = 'IllegalArgumentError';
+        this.name = 'IllegalValueError';
     }
 }
 

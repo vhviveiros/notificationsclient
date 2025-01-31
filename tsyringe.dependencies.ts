@@ -10,4 +10,4 @@ container.registerSingleton(TYPES.ConnectionService, ConnectionService);
 container.registerSingleton(TYPES.ForegroundService, ForegroundService);
 container.registerSingleton(TYPES.NotificationsService, NotificationsService);
 
-export {container};
+export default container;

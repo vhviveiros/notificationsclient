@@ -1,18 +1,19 @@
-import notifee, {AndroidImportance, AndroidVisibility, AuthorizationStatus, EventType} from '@notifee/react-native';
+import notifee, { AndroidImportance, AndroidVisibility, AuthorizationStatus, Event, EventType } from '@notifee/react-native';
 import Service from './Service.ts';
 import BatteryState from '../state/BatteryState.ts';
-import {observe} from 'mobx';
+import { observe } from 'mobx';
 import ConnectionService from './ConnectionService.ts';
 import ForegroundService from './ForegroundService.ts';
-import {inject, singleton} from 'tsyringe';
-import {TYPES} from '../../tsyringe.types.ts';
-import {TypeSafeServiceRegistry, TypeSafeStateRegistry} from '../etc/typeSafeRegistry.ts';
+import { inject, singleton } from 'tsyringe';
+import { TYPES } from '../../tsyringe.types.ts';
+import { TypeSafeServiceRegistry, TypeSafeStateRegistry } from '../etc/typeSafeRegistry.ts';
 
 @singleton()
 export default class NotificationsService extends Service {
     private _persistentChannel!: string;
     private _stateRegistry: TypeSafeStateRegistry;
     private _serviceRegistry: TypeSafeServiceRegistry;
+    private _notificationActions: Record<string, string>;
 
     constructor(
         @inject(TYPES.BatteryState) batteryState: BatteryState,
@@ -20,6 +21,11 @@ export default class NotificationsService extends Service {
         @inject(TYPES.ForegroundService) foregroundService: ForegroundService
     ) {
         super(TYPES.NotificationsService);
+        this._notificationActions = {
+            'Suspend': 'suspend',
+            'Awake': 'awake',
+            'Dismiss': 'dismiss',
+        };
         this._serviceRegistry = new TypeSafeServiceRegistry();
         this._stateRegistry = new TypeSafeStateRegistry();
         this._stateRegistry.set(TYPES.BatteryState, batteryState);
@@ -28,6 +34,9 @@ export default class NotificationsService extends Service {
     }
 
     init() {
+        console.log('NotificationService: Initializing...');
+        notifee.onForegroundEvent(this.handleEvents.bind(this));
+        notifee.onBackgroundEvent(this.handleEvents.bind(this));
         this.registerForegroundService();
     }
 
@@ -36,36 +45,40 @@ export default class NotificationsService extends Service {
         return permission.authorizationStatus === AuthorizationStatus.AUTHORIZED;
     }
 
-    async registerBackgroundEvents() {
-        console.log('NotificationService: Registering background events...');
-        notifee.onBackgroundEvent(async ({type, detail}) => {
-            const connectionService = this._serviceRegistry.get<ConnectionService>(TYPES.ConnectionService);
-            const events: Record<string, () => void> = {
-                'suspend': () => connectionService.suspendServer(),
-                'awake': () => connectionService.awakeServer(),
-                'dismiss': async () => {
-                    console.log('Dismiss pressed');
-                    this.stop();
-                },
-            };
+    async handleEvents({ type, detail }: Event) {
+        const connectionService = this._serviceRegistry.get<ConnectionService>(TYPES.ConnectionService);
+        const events: Record<string, () => void> = {
+            'suspend': () => {
+                console.log('NotificationService: Suspend pressed');
+                connectionService.suspendServer();
+            },
+            'awake': () => {
+                console.log('NotificationService: Awake pressed');
+                connectionService.awakeServer();
+            },
+            'dismiss': async () => {
+                console.log('NotificationService: Dismiss pressed');
+                this.stop();
+            },
+        };
 
-            if (type === EventType.ACTION_PRESS) {
-                const id: string = detail.pressAction!.id.toString();
-                events[id]();
-            }
-        });
+        if (type === EventType.ACTION_PRESS) {
+            const id: string = detail.pressAction!.id.toString();
+            events[id]();
+        }
     }
 
     async registerForegroundService() {
         console.log('NotificationService: Registering foreground service...');
         const foregroundService = this._serviceRegistry.get<ForegroundService>(TYPES.ForegroundService);
-        const runnable = foregroundService.runnable;
-        notifee.registerForegroundService(() => {
-            return new Promise(async () => {
-                console.log('NotificationService: Starting foreground service...');
-                await this.registerBackgroundEvents();
-                await runnable();
-            });
+        notifee.registerForegroundService(async () => {
+            console.log('NotificationService: Starting foreground service...');
+            try {
+                await foregroundService.runnable();
+            } finally {
+                console.log('NotificationService: Stopped foreground service');
+                await notifee.stopForegroundService();
+            }
         });
         await this.displayPersistentNotification();
         this.watchStateChanges();
@@ -143,24 +156,12 @@ export default class NotificationsService extends Service {
                 ongoing: true,
                 asForegroundService: true,
                 actions: [
-                    {
-                        title: 'Suspend',
+                    ...Object.keys(this._notificationActions).map(key => ({
+                        title: key,
                         pressAction: {
-                            id: 'suspend',
+                            id: this._notificationActions[key],
                         },
-                    },
-                    {
-                        title: 'Awake',
-                        pressAction: {
-                            id: 'awake',
-                        },
-                    },
-                    {
-                        title: 'Dismiss',
-                        pressAction: {
-                            id: 'dismiss',
-                        },
-                    },
+                    })),
                 ],
             },
         });
@@ -178,23 +179,17 @@ export default class NotificationsService extends Service {
         const connectionService = this._serviceRegistry.get<ConnectionService>(TYPES.ConnectionService);
         const batteryState = this._stateRegistry.get<BatteryState>(TYPES.BatteryState);
         const isConnected = connectionService.isConnected;
-        const batteryInfo = {
-            batteryLevel: batteryState.batteryLevel,
-            isCharging: batteryState.isCharging,
-        };
 
         const title = 'Server Status';
         const conn = isConnected ? 'Connected' : 'Disconnected';
-        const isCharging = batteryInfo.isCharging ? 'Charging' : 'Discharging';
+        const isCharging = batteryState.isCharging ? 'Charging' : 'Discharging';
         // console.log('Battery Info:', batteryInfo);
-        const body = `Server ${conn}<br>Battery: ${batteryInfo.batteryLevel}% | ${isCharging}`;
+        const body = `Server ${conn}<br>Battery: ${batteryState.batteryLevel}% | ${isCharging}`;
 
         return displayNotification(title, body);
     }
 
     stop() {
-        notifee.cancelAllNotifications();
-        notifee.stopForegroundService();
         this._serviceRegistry.forEach(service => service.stop());
         super.stop();
     }

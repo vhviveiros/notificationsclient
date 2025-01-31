@@ -1,6 +1,6 @@
-import {Text, View} from 'react-native-ui-lib';
+import { Text, View } from 'react-native-ui-lib';
 import React from 'react';
-import {ScrollView, StyleProp, StyleSheet} from 'react-native';
+import { ScrollView, StyleProp, StyleSheet } from 'react-native';
 
 interface UrlStatusItemProps {
     url: string,
@@ -13,27 +13,27 @@ interface WebSitesMonitorProps {
 }
 
 // @ts-ignore
-const SiteStatus = ({statusItem}) => (
+const SiteStatus = ({ statusItem }) => (
     <View style={styles.listItemContainer}>
         <View style={[
             listItemIndicatorStyles.indicator,
             // @ts-ignore
             listItemIndicatorStyles[statusItem.state],
-        ]}/>
+        ]} />
         <Text style={styles.listItem}>
             {statusItem.url}
         </Text>
     </View>
 );
 
-const WebSitesMonitor: React.FC<WebSitesMonitorProps> = ({urls, style}) => {
+const WebSitesMonitor: React.FC<WebSitesMonitorProps> = ({ urls, style }) => {
     return (
         <View style={style}>
             <View style={styles.container}>
                 <Text style={styles.containerTitle}>WebSites Monitor</Text>
                 <ScrollView style={styles.list}>
                     {urls.map((statusItem, index) => {
-                        return <SiteStatus statusItem={statusItem} key={`wsb-${index}`}/>;
+                        return <SiteStatus statusItem={statusItem} key={`wsb-${index}`} />;
                     })}
                 </ScrollView>
             </View>
@@ -51,48 +51,56 @@ const listItemIndicatorStyles = StyleSheet.create({
     },
 
     active: {
-        backgroundColor: 'rgba(76,175,80,0.5)', // Green for true/connected
-        shadowColor: 'rgba(76,175,80,0.5)',
-        shadowOffset: {width: 0, height: 0},
-        shadowOpacity: 0.7,
-        shadowRadius: 5,
-        elevation: 5,
+        backgroundColor: '#48bb78',
+        shadowColor: '#48bb78',
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.35,
+        shadowRadius: 4,
+        elevation: 3,
     },
 
     inactive: {
-        backgroundColor: 'rgba(244,67,54,0.5)',
-        shadowColor: 'rgba(244,67,54,0.5)',
-        shadowOffset: {width: 0, height: 0},
-        shadowOpacity: 0.7,
-        shadowRadius: 5,
-        elevation: 5,
+        backgroundColor: '#f56565',
+        shadowColor: '#f56565',
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.35,
+        shadowRadius: 4,
+        elevation: 3,
     },
 });
 
 const styles = StyleSheet.create({
     container: {
-        borderRadius: 8,
-        backgroundColor: '#eafffc',
-        boxShadow: '0 4px 8px 0 rgba(0, 0, 0, 0.2)',
+        borderRadius: 16,
+        backgroundColor: '#ffffff',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+        elevation: 5,
+        margin: 16,
     },
     list: {
-        margin: 12,
+        margin: 16,
     },
     listItem: {
-        fontSize: 18,
-        fontWeight: 'normal',
-        lineHeight: 22,
+        fontSize: 16,
+        fontWeight: '500',
+        color: '#2d3748',
     },
     listItemContainer: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: 8,
+        marginBottom: 12,
+        padding: 12,
+        backgroundColor: '#f7fafc',
+        borderRadius: 8,
     },
     containerTitle: {
-        marginHorizontal: 8,
-        fontSize: 20,
-        fontWeight: '500',
-        lineHeight: 50,
+        margin: 16,
+        fontSize: 24,
+        fontWeight: '600',
+        color: '#1a202c',
     },
 });
 
