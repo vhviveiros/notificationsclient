@@ -16,4 +16,5 @@ import { TYPES } from './tsyringe.types';
 //     console.debug = () => {};
 // }
 container.resolve(TYPES.NotificationsService);
+container.resolve(TYPES.WebSiteMonitorService);
 AppRegistry.registerComponent(appName, () => App);

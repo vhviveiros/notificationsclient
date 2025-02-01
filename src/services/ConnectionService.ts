@@ -78,7 +78,7 @@ export default class ConnectionService extends Service {
      * @param port - Server port, defaults to DEFAULT_PORT
      */
     init(url: string = DEFAULT_URL, port: number = DEFAULT_PORT) {
-        this.connect(__DEV__ ? '192.168.1.4' : url, port);
+        this.connect(url, port);
     }
 
     /**

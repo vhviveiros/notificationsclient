@@ -4,11 +4,14 @@ import { Typography, View } from 'react-native-ui-lib';
 import { observer } from 'mobx-react-lite';
 import WebSitesMonitor from './components/WebSitesMonitor.tsx';
 import MediumButton from './components/MediumButton.tsx';
-import useServices from './hooks/useServices.ts';
+import useService from './hooks/useServices.ts';
 import NotificationsService from './services/NotificationsService.ts';
 import { TYPES } from '../tsyringe.types.ts';
 import ConnectionService from './services/ConnectionService.ts';
 import ForegroundService from './services/ForegroundService.ts';
+import WebSiteMonitorService from './services/WebSiteMonitorService.ts';
+import useState from './hooks/useStates.ts';
+import WebSiteMonitorState from './state/WebSiteMonitorState.ts';
 
 Typography.loadTypographies({
     h1: { fontSize: 58, fontWeight: '300', lineHeight: 80 },
@@ -38,20 +41,23 @@ const MainContent: React.FC = observer(() => {
     ];
 
     const services = {
-        connection: useServices<ConnectionService>(TYPES.ConnectionService),
-        foreground: useServices<ForegroundService>(TYPES.ForegroundService),
-        notifications: useServices<NotificationsService>(TYPES.NotificationsService)
+        connection: useService<ConnectionService>(TYPES.ConnectionService),
+        foreground: useService<ForegroundService>(TYPES.ForegroundService),
+        notifications: useService<NotificationsService>(TYPES.NotificationsService),
+        webSiteMonitor: useService<WebSiteMonitorService>(TYPES.WebSiteMonitorService),
     };
 
     const startServices = () => {
         Object.values(services).forEach(service => service.init());
     };
 
+    const webSiteMonitorState = useState<WebSiteMonitorState>(TYPES.WebSiteMonitorState);
+
     return (
         <SafeAreaView style={styles.safeArea}>
             <View style={styles.container}>
                 <Text style={styles.title}>Website Monitor</Text>
-                <WebSitesMonitor style={styles.sitesMonitor} urls={urlData} />
+                <WebSitesMonitor style={styles.sitesMonitor} webSiteMonitorState={webSiteMonitorState} />
                 <MediumButton
                     text={'Start Monitoring'}
                     color='#4299e1'

@@ -1,16 +1,15 @@
 import { Text, View } from 'react-native-ui-lib';
 import React from 'react';
 import { ScrollView, StyleProp, StyleSheet } from 'react-native';
-
-interface UrlStatusItemProps {
-    url: string,
-    status: 'active' | 'inactive',
-}
+import WebSiteMonitorState from '../state/WebSiteMonitorState';
+import { observe } from 'mobx';
+import { observer } from 'mobx-react-lite';
 
 interface WebSitesMonitorProps {
-    urls: UrlStatusItemProps[],
+    webSiteMonitorState: WebSiteMonitorState,
     style?: StyleProp<any>,
 }
+
 
 // @ts-ignore
 const SiteStatus = ({ statusItem }) => (
@@ -18,28 +17,28 @@ const SiteStatus = ({ statusItem }) => (
         <View style={[
             listItemIndicatorStyles.indicator,
             // @ts-ignore
-            listItemIndicatorStyles[statusItem.status],
+            listItemIndicatorStyles[statusItem.isUp ? 'active' : 'inactive'],
         ]} />
         <Text style={listItemIndicatorStyles.listItem}>
-            {statusItem.url}
+            {statusItem.name}
         </Text>
     </View>
 );
 
-const WebSitesMonitor: React.FC<WebSitesMonitorProps> = ({ urls, style }) => {
+const WebSitesMonitor: React.FC<WebSitesMonitorProps> = observer(({ webSiteMonitorState, style }) => {
     return (
         <View style={style}>
             <View style={styles.container}>
                 <Text style={styles.containerTitle}>WebSites Monitor</Text>
                 <ScrollView style={styles.list}>
-                    {urls.map((statusItem, index) => {
+                    {webSiteMonitorState.sites.map((statusItem, index) => {
                         return <SiteStatus statusItem={statusItem} key={`wsb-${index}`} />;
                     })}
                 </ScrollView>
             </View>
         </View>
     );
-};
+});
 
 const listItemIndicatorStyles = StyleSheet.create({
     listItemContainer: {
