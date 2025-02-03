@@ -47,13 +47,14 @@ const WebSitesMonitor: React.FC<WebSitesMonitorProps> = observer(({ webSiteMonit
             <View style={styles.container}>
                 <Text style={styles.containerTitle}>WebSites Monitor</Text>
                 <ScrollView style={styles.list}>
-                    {webSiteMonitorState.sites.map((statusItem, index) => (
+                    {Object.values(webSiteMonitorState.sites).map((statusItem, index) => (
                         <SiteStatus
                             statusItem={statusItem}
                             key={`wsb-${index}`}
                             onPress={() => handleSitePress(statusItem)}
                         />
                     ))}
+
                 </ScrollView>
             </View>
 

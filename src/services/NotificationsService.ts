@@ -7,6 +7,7 @@ import ForegroundService from './ForegroundService.ts';
 import { inject, singleton } from 'tsyringe';
 import { TYPES } from '../../tsyringe.types.ts';
 import { TypeSafeServiceRegistry, TypeSafeStateRegistry } from '../etc/typeSafeRegistry.ts';
+import { Linking } from 'react-native';
 
 @singleton()
 export default class NotificationsService extends Service {
@@ -65,6 +66,8 @@ export default class NotificationsService extends Service {
         if (type === EventType.ACTION_PRESS) {
             const id: string = detail.pressAction!.id.toString();
             events[id]();
+        } else if (type === EventType.PRESS) {
+            Linking.openURL('app://open');
         }
     }
 
@@ -134,6 +137,10 @@ export default class NotificationsService extends Service {
             android: {
                 channelId: channelId,
                 importance: importance,
+                pressAction: {
+                    id: 'default',
+                    launchActivity: 'default',
+                },
             },
         });
 
@@ -158,6 +165,10 @@ export default class NotificationsService extends Service {
                 importance: importance,
                 ongoing: true,
                 asForegroundService: true,
+                pressAction: {
+                    id: 'default',
+                    launchActivity: 'default',
+                },
                 actions: [
                     ...Object.keys(this._notificationActions).map(key => ({
                         title: key,
