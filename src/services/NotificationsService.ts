@@ -7,13 +7,22 @@ import ForegroundService from './ForegroundService.ts';
 import { inject, singleton } from 'tsyringe';
 import { TYPES } from '../../tsyringe.types.ts';
 import { TypeSafeServiceRegistry, TypeSafeStateRegistry } from '../etc/typeSafeRegistry.ts';
+import { Linking } from 'react-native';
+import { createDynamicTimer } from '../etc/tools.ts';
 
 @singleton()
 export default class NotificationsService extends Service {
+    private readonly DEFAULT_TIMER_INCREMENT = 5;
+
     private _persistentChannel!: string;
     private _stateRegistry: TypeSafeStateRegistry;
     private _serviceRegistry: TypeSafeServiceRegistry;
     private _notificationActions: Record<string, string>;
+    private _suspendTimer: ReturnType<typeof createDynamicTimer> | null = null;
+    private _suspendTimerIncrement: number = this.DEFAULT_TIMER_INCREMENT;
+    private _suspendTimerIncrementTick: number = 0;
+    private _suspendTimerIncrementTickUpgrade: number = 3;
+    private _suspendTimerTime: number = 0;
 
     constructor(
         @inject(TYPES.BatteryState) batteryState: BatteryState,
@@ -50,7 +59,56 @@ export default class NotificationsService extends Service {
         const events: Record<string, () => void> = {
             'suspend': () => {
                 console.log('NotificationService: Suspend pressed');
-                connectionService.suspendServer();
+                const updateNotification = () => {
+                    this._suspendTimerTime = this._suspendTimer?.getRemainingMinutes() ?? 0;
+
+                    const oldSuspendKey = Object.keys(this._notificationActions)[0];
+                    const suspendValue = this._suspendTimerTime > 0 ? '' : ` (${this._suspendTimerTime}m)`;
+                    const suspendKey = 'Suspend' + suspendValue;
+                    const keys = Object.keys(this._notificationActions);
+                    this._notificationActions = keys.reduce((acc, key) => {
+                        if (key !== oldSuspendKey) {
+                            acc[key] = this._notificationActions[key];
+                        } else {
+                            acc[suspendKey] = this._notificationActions[key];
+                        }
+                        return acc;
+                    }, {} as Record<string, string>);
+                    console.log(`oldSuspendKey: ${oldSuspendKey} suspendKey: ${suspendKey}`);
+                    this.displayPersistentNotification();
+                };
+
+                if (this._suspendTimer?.isTimerRunning()) {
+                    if (this._suspendTimerIncrementTick === this._suspendTimerIncrementTickUpgrade) {
+                        this._suspendTimerIncrement *= 2;
+                        this._suspendTimerIncrementTick = 0;
+                    }
+                    this._suspendTimerIncrementTick++;
+                    this._suspendTimer.addMinutes(this._suspendTimerIncrement);
+                    updateNotification();
+                    return;
+                }
+
+                const onTimerTick = (minutes: number) => {
+                    this._suspendTimerTime = minutes;
+                    if (this._suspendTimerTime % 5 === 0) {
+                        updateNotification();
+                        this.displayPersistentNotification();
+                    }
+                    console.log(`NotificationService: Suspend timer tick: ${minutes}m`);
+                };
+                const onComplete = () => {
+                    this._suspendTimer?.stop();
+                    this._suspendTimer = null;
+                    this._suspendTimerIncrement = this.DEFAULT_TIMER_INCREMENT;
+                    this._suspendTimerIncrementTick = 0;
+                    this._suspendTimerTime = 0;
+                    connectionService.suspendServer();
+                    updateNotification();
+                };
+                this._suspendTimer = createDynamicTimer(onComplete, onTimerTick);
+                this._suspendTimer.start(this._suspendTimerIncrement);
+                updateNotification();
             },
             'awake': () => {
                 console.log('NotificationService: Awake pressed');
@@ -65,6 +123,8 @@ export default class NotificationsService extends Service {
         if (type === EventType.ACTION_PRESS) {
             const id: string = detail.pressAction!.id.toString();
             events[id]();
+        } else if (type === EventType.PRESS) {
+            Linking.openURL('app://open');
         }
     }
 
@@ -134,6 +194,10 @@ export default class NotificationsService extends Service {
             android: {
                 channelId: channelId,
                 importance: importance,
+                pressAction: {
+                    id: 'default',
+                    launchActivity: 'default',
+                },
             },
         });
 
@@ -158,6 +222,10 @@ export default class NotificationsService extends Service {
                 importance: importance,
                 ongoing: true,
                 asForegroundService: true,
+                pressAction: {
+                    id: 'default',
+                    launchActivity: 'default',
+                },
                 actions: [
                     ...Object.keys(this._notificationActions).map(key => ({
                         title: key,

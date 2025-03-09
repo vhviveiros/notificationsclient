@@ -1,4 +1,4 @@
-import {IllegalValueError} from './errors.ts';
+import { IllegalValueError } from './errors.ts';
 
 /**
  * Custom assertion function to enforce conditions.
@@ -14,4 +14,69 @@ export const require: (condition: boolean, message: string) => asserts condition
     if (!condition) {
         throw new IllegalValueError(message || '');
     }
+};
+
+export const createDynamicTimer = (
+    onComplete: () => void,
+    onTick: (minutes: number) => void = () => { },
+) => {
+    let remainingMinutes = 0;
+    let isRunning = false;
+    let intervalId: NodeJS.Timeout | null = null;
+
+    const start = (initialMinutes: number = 0): void => {
+        if (isRunning) {
+            // Just update the timer without restarting
+            remainingMinutes += initialMinutes;
+            return;
+        }
+
+        remainingMinutes += initialMinutes;
+        isRunning = true;
+
+        // Check immediately if we have time to start with
+        if (remainingMinutes <= 0) {
+            isRunning = false;
+            onComplete();
+            return;
+        }
+
+        // Start a periodic check every minute
+        intervalId = setInterval(() => {
+            remainingMinutes -= 1;
+            onTick(remainingMinutes);
+            if (remainingMinutes <= 0) {
+                stop();
+                onComplete();
+            }
+        }, 60000); // 1 minute in milliseconds
+    };
+
+    const stop = (): void => {
+        if (intervalId) {
+            clearInterval(intervalId);
+            intervalId = null;
+        }
+        isRunning = false;
+    };
+
+    const addMinutes = (minutes: number): void => {
+        remainingMinutes += minutes;
+    };
+
+    const getRemainingMinutes = (): number => {
+        return remainingMinutes;
+    };
+
+    const isTimerRunning = (): boolean => {
+        return isRunning;
+    };
+
+    return {
+        start,
+        stop,
+        addMinutes,
+        getRemainingMinutes,
+        isTimerRunning,
+    };
 };

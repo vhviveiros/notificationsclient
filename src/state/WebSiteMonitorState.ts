@@ -31,12 +31,12 @@ interface WebSiteMonitorStateData extends MobxBaseState {
  * @class WebSiteMonitorState
  * @implements MobxState
  */
-export default class WebSiteMonitorState implements MobxState {
+export default class WebSiteMonitorState implements MobxState, WebSiteMonitorStateData {
     readonly identifier = TYPES.WebSiteMonitorState;
 
     /** @observable Map of monitored sites */
     @observable
-    private _sites: Record<string, Site> = {};
+    sites: Record<string, Site> = {};
 
     /** Flag indicating if state has been initialized */
     private _hasInitialized: boolean = false;
@@ -51,7 +51,7 @@ export default class WebSiteMonitorState implements MobxState {
      */
     @action
     setState(state: WebSiteMonitorStateData): void {
-        this._sites = state.sites;
+        this.sites = state.sites;
         this._hasInitialized = true;
     }
 
@@ -61,13 +61,5 @@ export default class WebSiteMonitorState implements MobxState {
      */
     hasInit(): boolean {
         return this._hasInitialized;
-    }
-
-    /**
-     * Gets the list of monitored sites
-     * @returns {Array<Site>} Array of site objects
-     */
-    get sites(): Array<Site> {
-        return Object.values(this._sites);
     }
 }
