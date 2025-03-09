@@ -13,6 +13,7 @@ import { createDynamicTimer } from '../etc/tools.ts';
 @singleton()
 export default class NotificationsService extends Service {
     private readonly DEFAULT_TIMER_INCREMENT = 5;
+    private readonly PENDING_SUSPEND_TIMEOUT_MINUTES = 10; // 5 minutes timeout
 
     private _persistentChannel!: string;
     private _stateRegistry: TypeSafeStateRegistry;
@@ -24,6 +25,8 @@ export default class NotificationsService extends Service {
     private _suspendTimerIncrementTickUpgrade: number = 3;
     private _suspendTimerTime: number = 0;
     private _timerStateListeners: Array<() => void> = [];
+    private _pendingSuspendCommand: boolean = false;
+    private _pendingSuspendTimeout: NodeJS.Timeout | null = null;
 
     constructor(
         @inject(TYPES.BatteryState) batteryState: BatteryState,
@@ -118,7 +121,14 @@ export default class NotificationsService extends Service {
                 };
                 const onComplete = () => {
                     this.cancelSuspendTimer();
-                    connectionService.suspendServer();
+
+                    if (connectionService.isConnected) {
+                        // If connected, suspend immediately
+                        connectionService.suspendServer();
+                    } else {
+                        // If disconnected, queue the suspend command
+                        this._queueSuspendCommand();
+                    }
                 };
                 this._suspendTimer = createDynamicTimer(onComplete, onTimerTick);
                 this._suspendTimer.start(this._suspendTimerIncrement);
@@ -164,9 +174,21 @@ export default class NotificationsService extends Service {
 
         console.log('NotificationService: Watching state changes...');
         this.disposalCallbacks.push(
-            observe(connectionService, 'isConnected', () => {
+            observe(connectionService, 'isConnected', (change) => {
                 this.displayPersistentNotification();
-                if (!connectionService.isConnected) {
+
+                if (change.newValue === true && this._pendingSuspendCommand) {
+                    console.log('NotificationService: Connection restored, executing pending suspend command');
+                    this._pendingSuspendCommand = false;
+
+                    if (this._pendingSuspendTimeout) {
+                        clearTimeout(this._pendingSuspendTimeout);
+                        this._pendingSuspendTimeout = null;
+                    }
+
+                    connectionService.suspendServer();
+                    this.displayAlertNotification('Connection restored. Server suspended as scheduled.');
+                } else if (!connectionService.isConnected) {
                     this.displayAlertNotification('Disconnected from server.');
                 }
             }, false)
@@ -274,6 +296,12 @@ export default class NotificationsService extends Service {
     }
 
     stop() {
+        if (this._pendingSuspendTimeout) {
+            clearTimeout(this._pendingSuspendTimeout);
+            this._pendingSuspendTimeout = null;
+        }
+        this._pendingSuspendCommand = false;
+
         this._serviceRegistry.forEach(service => service.stop());
         super.stop();
     }
@@ -296,5 +324,21 @@ export default class NotificationsService extends Service {
             this._updateSuspendNotificationActions();
             this._notifyTimerStateListeners();
         }
+    }
+
+    private _queueSuspendCommand(): void {
+        console.log('NotificationService: Queuing suspend command due to disconnection');
+        this._pendingSuspendCommand = true;
+
+        this._pendingSuspendTimeout = setTimeout(() => {
+            if (this._pendingSuspendCommand) {
+                console.log(`NotificationService: Canceling pending suspend command after ${this.PENDING_SUSPEND_TIMEOUT_MINUTES} minutes`);
+                this._pendingSuspendCommand = false;
+                this._pendingSuspendTimeout = null;
+                this.displayAlertNotification('Server suspend command canceled due to prolonged disconnection.');
+            }
+        }, this.PENDING_SUSPEND_TIMEOUT_MINUTES * 60 * 1000);
+
+        this.displayAlertNotification('Server will be suspended when connection is restored.');
     }
 }
