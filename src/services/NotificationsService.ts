@@ -1,7 +1,7 @@
 import notifee, { AndroidImportance, AndroidVisibility, AuthorizationStatus, Event, EventType } from '@notifee/react-native';
 import Service from './Service.ts';
 import BatteryState from '../state/BatteryState.ts';
-import { observe } from 'mobx';
+import { observe, makeAutoObservable } from 'mobx';
 import ConnectionService from './ConnectionService.ts';
 import ForegroundService from './ForegroundService.ts';
 import { inject, singleton } from 'tsyringe';
@@ -23,6 +23,7 @@ export default class NotificationsService extends Service {
     private _suspendTimerIncrementTick: number = 0;
     private _suspendTimerIncrementTickUpgrade: number = 3;
     private _suspendTimerTime: number = 0;
+    private _timerStateListeners: Array<() => void> = [];
 
     constructor(
         @inject(TYPES.BatteryState) batteryState: BatteryState,
@@ -42,6 +43,22 @@ export default class NotificationsService extends Service {
         this._serviceRegistry.set(TYPES.ForegroundService, foregroundService);
     }
 
+    // Add a method to register timer state listeners
+    addTimerStateListener(listener: () => void): () => void {
+        this._timerStateListeners.push(listener);
+        return () => {
+            const index = this._timerStateListeners.indexOf(listener);
+            if (index !== -1) {
+                this._timerStateListeners.splice(index, 1);
+            }
+        };
+    }
+
+    // Notify all listeners when timer state changes
+    private _notifyTimerStateListeners() {
+        this._timerStateListeners.forEach(listener => listener());
+    }
+
     init() {
         console.log('NotificationService: Initializing...');
         notifee.onForegroundEvent(this.handleEvents.bind(this));
@@ -54,30 +71,31 @@ export default class NotificationsService extends Service {
         return permission.authorizationStatus === AuthorizationStatus.AUTHORIZED;
     }
 
+    private _updateSuspendNotificationActions = () => {
+        this._suspendTimerTime = this._suspendTimer?.getRemainingMinutes() ?? 0;
+
+        const oldSuspendKey = Object.keys(this._notificationActions)[0];
+        const suspendValue = this._suspendTimerTime > 0 ? ` (${this._suspendTimerTime}m)` : '';
+        const suspendKey = 'Suspend' + suspendValue;
+        const keys = Object.keys(this._notificationActions);
+        this._notificationActions = keys.reduce((acc, key) => {
+            if (key !== oldSuspendKey) {
+                acc[key] = this._notificationActions[key];
+            } else {
+                acc[suspendKey] = this._notificationActions[key];
+            }
+            return acc;
+        }, {} as Record<string, string>);
+        console.log(`oldSuspendKey: ${oldSuspendKey} suspendKey: ${suspendKey}`);
+        this.displayPersistentNotification();
+        this._notifyTimerStateListeners();
+    };
+
     async handleEvents({ type, detail }: Event) {
         const connectionService = this._serviceRegistry.get<ConnectionService>(TYPES.ConnectionService);
         const events: Record<string, () => void> = {
             'suspend': () => {
                 console.log('NotificationService: Suspend pressed');
-                const updateNotification = () => {
-                    this._suspendTimerTime = this._suspendTimer?.getRemainingMinutes() ?? 0;
-
-                    const oldSuspendKey = Object.keys(this._notificationActions)[0];
-                    const suspendValue = this._suspendTimerTime > 0 ? '' : ` (${this._suspendTimerTime}m)`;
-                    const suspendKey = 'Suspend' + suspendValue;
-                    const keys = Object.keys(this._notificationActions);
-                    this._notificationActions = keys.reduce((acc, key) => {
-                        if (key !== oldSuspendKey) {
-                            acc[key] = this._notificationActions[key];
-                        } else {
-                            acc[suspendKey] = this._notificationActions[key];
-                        }
-                        return acc;
-                    }, {} as Record<string, string>);
-                    console.log(`oldSuspendKey: ${oldSuspendKey} suspendKey: ${suspendKey}`);
-                    this.displayPersistentNotification();
-                };
-
                 if (this._suspendTimer?.isTimerRunning()) {
                     if (this._suspendTimerIncrementTick === this._suspendTimerIncrementTickUpgrade) {
                         this._suspendTimerIncrement *= 2;
@@ -85,30 +103,26 @@ export default class NotificationsService extends Service {
                     }
                     this._suspendTimerIncrementTick++;
                     this._suspendTimer.addMinutes(this._suspendTimerIncrement);
-                    updateNotification();
+                    this._updateSuspendNotificationActions();
                     return;
                 }
 
                 const onTimerTick = (minutes: number) => {
                     this._suspendTimerTime = minutes;
                     if (this._suspendTimerTime % 5 === 0) {
-                        updateNotification();
+                        this._updateSuspendNotificationActions();
                         this.displayPersistentNotification();
                     }
+                    this._notifyTimerStateListeners();
                     console.log(`NotificationService: Suspend timer tick: ${minutes}m`);
                 };
                 const onComplete = () => {
-                    this._suspendTimer?.stop();
-                    this._suspendTimer = null;
-                    this._suspendTimerIncrement = this.DEFAULT_TIMER_INCREMENT;
-                    this._suspendTimerIncrementTick = 0;
-                    this._suspendTimerTime = 0;
+                    this.cancelSuspendTimer();
                     connectionService.suspendServer();
-                    updateNotification();
                 };
                 this._suspendTimer = createDynamicTimer(onComplete, onTimerTick);
                 this._suspendTimer.start(this._suspendTimerIncrement);
-                updateNotification();
+                this._updateSuspendNotificationActions();
             },
             'awake': () => {
                 console.log('NotificationService: Awake pressed');
@@ -143,7 +157,6 @@ export default class NotificationsService extends Service {
         await this.displayPersistentNotification();
         this.watchStateChanges();
     }
-
 
     watchStateChanges() {
         const connectionService = this._serviceRegistry.get<ConnectionService>(TYPES.ConnectionService);
@@ -263,5 +276,25 @@ export default class NotificationsService extends Service {
     stop() {
         this._serviceRegistry.forEach(service => service.stop());
         super.stop();
+    }
+
+    get suspendTimerRunning(): boolean {
+        return this._suspendTimer?.isTimerRunning() ?? false;
+    }
+
+    get suspendTimerMinutes(): number {
+        return this._suspendTimerTime;
+    }
+
+    cancelSuspendTimer(): void {
+        if (this._suspendTimer) {
+            this._suspendTimer.stop();
+            this._suspendTimer = null;
+            this._suspendTimerIncrement = this.DEFAULT_TIMER_INCREMENT;
+            this._suspendTimerIncrementTick = 0;
+            this._suspendTimerTime = 0;
+            this._updateSuspendNotificationActions();
+            this._notifyTimerStateListeners();
+        }
     }
 }

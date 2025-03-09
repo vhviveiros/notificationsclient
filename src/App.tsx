@@ -1,5 +1,5 @@
 import { SafeAreaView, StyleSheet, Text } from 'react-native';
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Typography, View } from 'react-native-ui-lib';
 import { observer } from 'mobx-react-lite';
 import WebSitesMonitor from './components/WebSitesMonitor.tsx';
@@ -10,8 +10,9 @@ import { TYPES } from '../tsyringe.types.ts';
 import ConnectionService from './services/ConnectionService.ts';
 import ForegroundService from './services/ForegroundService.ts';
 import WebSiteMonitorService from './services/WebSiteMonitorService.ts';
-import useState from './hooks/useStates.ts';
+import useStateFromDI from './hooks/useStates.ts';
 import WebSiteMonitorState from './state/WebSiteMonitorState.ts';
+import TimerWidget from './components/TimerWidget';
 
 Typography.loadTypographies({
     h1: { fontSize: 58, fontWeight: '300', lineHeight: 80 },
@@ -25,20 +26,10 @@ export default function App(): JSX.Element {
 }
 
 const MainContent: React.FC = observer(() => {
-    const urlData = [
-        {
-            url: 'https://www.example.com',
-            status: 'active',
-        },
-        {
-            url: 'https://www.brokenlink.com',
-            status: 'inactive',
-        },
-        {
-            url: 'https://www.another-example.org',
-            status: 'active',
-        },
-    ];
+    const [timerState, setTimerState] = useState({
+        isRunning: false,
+        minutes: 0
+    });
 
     const services = {
         connection: useService<ConnectionService>(TYPES.ConnectionService),
@@ -51,18 +42,45 @@ const MainContent: React.FC = observer(() => {
         Object.values(services).forEach(service => service.init());
     };
 
-    const webSiteMonitorState = useState<WebSiteMonitorState>(TYPES.WebSiteMonitorState);
+    const webSiteMonitorState = useStateFromDI<WebSiteMonitorState>(TYPES.WebSiteMonitorState);
+
+    // Register a listener for timer state changes
+    useEffect(() => {
+        if (!services.notifications) return;
+
+        const updateTimerState = () => {
+            setTimerState({
+                isRunning: services.notifications.suspendTimerRunning,
+                minutes: services.notifications.suspendTimerMinutes
+            });
+        };
+
+        // Initial state
+        updateTimerState();
+
+        // Register listener
+        const removeListener = services.notifications.addTimerStateListener(updateTimerState);
+
+        return removeListener;
+    }, [services.notifications]);
 
     return (
         <SafeAreaView style={styles.safeArea}>
             <View style={styles.container}>
-                <Text style={styles.title}>Website Monitor</Text>
-                <WebSitesMonitor style={styles.sitesMonitor} webSiteMonitorState={webSiteMonitorState} />
-                <MediumButton
-                    text={'Start Monitoring'}
-                    color='#4299e1'
-                    style={styles.btn}
-                    onPress={startServices}
+                <View style={styles.contentContainer}>
+                    <Text style={styles.title}>Website Monitor</Text>
+                    <WebSitesMonitor style={styles.sitesMonitor} webSiteMonitorState={webSiteMonitorState} />
+                    <MediumButton
+                        text={'Start Monitoring'}
+                        color='#4299e1'
+                        style={styles.btn}
+                        onPress={startServices}
+                    />
+                </View>
+                <TimerWidget
+                    remainingMinutes={timerState.minutes}
+                    isRunning={timerState.isRunning}
+                    onCancel={() => services.notifications.cancelSuspendTimer()}
                 />
             </View>
         </SafeAreaView>
@@ -78,6 +96,10 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: '#f7fafc',
         padding: 16,
+        position: 'relative',
+    },
+    contentContainer: {
+        flex: 1,
     },
     title: {
         fontSize: 32,
