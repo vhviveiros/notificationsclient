@@ -20,9 +20,12 @@ export const createDynamicTimer = (
     onComplete: () => void,
     onTick: (minutes: number) => void = () => { },
 ) => {
+    const RESET_INCREMENT_TIMEOUT = 5 * 1000; // 5 seconds in milliseconds
+
     let remainingMinutes = 0;
     let isRunning = false;
     let intervalId: NodeJS.Timeout | null = null;
+    let lastIncrementTime = 0;
 
     const start = (initialMinutes: number = 0): void => {
         if (isRunning) {
@@ -33,6 +36,7 @@ export const createDynamicTimer = (
 
         remainingMinutes += initialMinutes;
         isRunning = true;
+        lastIncrementTime = Date.now();
 
         // Check immediately if we have time to start with
         if (remainingMinutes <= 0) {
@@ -62,6 +66,7 @@ export const createDynamicTimer = (
 
     const addMinutes = (minutes: number): void => {
         remainingMinutes += minutes;
+        lastIncrementTime = Date.now();
     };
 
     const getRemainingMinutes = (): number => {
@@ -72,11 +77,16 @@ export const createDynamicTimer = (
         return isRunning;
     };
 
+    const shouldResetIncrement = (): boolean => {
+        return Date.now() - lastIncrementTime > RESET_INCREMENT_TIMEOUT;
+    };
+
     return {
         start,
         stop,
         addMinutes,
         getRemainingMinutes,
         isTimerRunning,
+        shouldResetIncrement,
     };
 };

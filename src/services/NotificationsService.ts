@@ -8,21 +8,19 @@ import { inject, singleton } from 'tsyringe';
 import { TYPES } from '../../tsyringe.types.ts';
 import { TypeSafeServiceRegistry, TypeSafeStateRegistry } from '../etc/typeSafeRegistry.ts';
 import { Linking } from 'react-native';
-import { createDynamicTimer } from '../etc/tools.ts';
+import { TimerManager } from '../etc/TimerManager.ts';
 
 @singleton()
 export default class NotificationsService extends Service {
     private readonly DEFAULT_TIMER_INCREMENT = 5;
     private readonly PENDING_SUSPEND_TIMEOUT_MINUTES = 10; // 5 minutes timeout
+    private readonly SUSPEND_TIMER_INCREMENT_UPGRADE = 3;
 
     private _persistentChannel!: string;
     private _stateRegistry: TypeSafeStateRegistry;
     private _serviceRegistry: TypeSafeServiceRegistry;
     private _notificationActions: Record<string, string>;
-    private _suspendTimer: ReturnType<typeof createDynamicTimer> | null = null;
-    private _suspendTimerIncrement: number = this.DEFAULT_TIMER_INCREMENT;
-    private _suspendTimerIncrementTick: number = 0;
-    private _suspendTimerIncrementTickUpgrade: number = 3;
+    private _timerManager: TimerManager | null = null;
     private _suspendTimerTime: number = 0;
     private _timerStateListeners: Array<() => void> = [];
     private _pendingSuspendCommand: boolean = false;
@@ -75,20 +73,40 @@ export default class NotificationsService extends Service {
     }
 
     private _updateSuspendNotificationActions = () => {
-        this._suspendTimerTime = this._suspendTimer?.getRemainingMinutes() ?? 0;
+        this._suspendTimerTime = this._timerManager?.getRemainingMinutes() ?? 0;
 
         const oldSuspendKey = Object.keys(this._notificationActions)[0];
-        const suspendValue = this._suspendTimerTime > 0 ? ` (${this._suspendTimerTime}m)` : '';
-        const suspendKey = 'Suspend' + suspendValue;
-        const keys = Object.keys(this._notificationActions);
-        this._notificationActions = keys.reduce((acc, key) => {
-            if (key !== oldSuspendKey) {
-                acc[key] = this._notificationActions[key];
+
+        // Determine the suspend action text based on timer state
+        let suspendKey = 'Suspend';
+        if (this._timerManager?.isRunning()) {
+            // If timer is running, check if we should show the reset increment or current increment
+            let incrementValue;
+            if (this._timerManager.shouldResetIncrement()) {
+                // If we should reset, show the default increment
+                incrementValue = `+${this.DEFAULT_TIMER_INCREMENT}m`;
             } else {
-                acc[suspendKey] = this._notificationActions[key];
+                // Otherwise show the current increment
+                incrementValue = `+${this._timerManager.currentIncrement}m`;
             }
-            return acc;
-        }, {} as Record<string, string>);
+            suspendKey = `Suspend ${incrementValue}`;
+        }
+
+        // Create a new notification actions object
+        const newNotificationActions: Record<string, string> = {};
+
+        // Add the updated suspend key first
+        newNotificationActions[suspendKey] = 'suspend';
+
+        // Add all other keys except the old suspend key
+        Object.keys(this._notificationActions).forEach(key => {
+            if (key !== oldSuspendKey) {
+                newNotificationActions[key] = this._notificationActions[key];
+            }
+        });
+
+        this._notificationActions = newNotificationActions;
+
         console.log(`oldSuspendKey: ${oldSuspendKey} suspendKey: ${suspendKey}`);
         this.displayPersistentNotification();
         this._notifyTimerStateListeners();
@@ -99,40 +117,27 @@ export default class NotificationsService extends Service {
         const events: Record<string, () => void> = {
             'suspend': () => {
                 console.log('NotificationService: Suspend pressed');
-                if (this._suspendTimer?.isTimerRunning()) {
-                    if (this._suspendTimerIncrementTick === this._suspendTimerIncrementTickUpgrade) {
-                        this._suspendTimerIncrement *= 2;
-                        this._suspendTimerIncrementTick = 0;
-                    }
-                    this._suspendTimerIncrementTick++;
-                    this._suspendTimer.addMinutes(this._suspendTimerIncrement);
-                    this._updateSuspendNotificationActions();
-                    return;
+
+                if (!this._timerManager) {
+                    // Create timer manager if it doesn't exist
+                    this._timerManager = new TimerManager({
+                        initialIncrement: this.DEFAULT_TIMER_INCREMENT,
+                        incrementTickUpgrade: this.SUSPEND_TIMER_INCREMENT_UPGRADE,
+                        onStateChange: this._updateSuspendNotificationActions,
+                        onComplete: () => {
+                            if (connectionService.isConnected) {
+                                // If connected, suspend immediately
+                                connectionService.suspendServer();
+                            } else {
+                                // If disconnected, queue the suspend command
+                                this._queueSuspendCommand();
+                            }
+                        }
+                    });
                 }
 
-                const onTimerTick = (minutes: number) => {
-                    this._suspendTimerTime = minutes;
-                    if (this._suspendTimerTime % 5 === 0) {
-                        this._updateSuspendNotificationActions();
-                        this.displayPersistentNotification();
-                    }
-                    this._notifyTimerStateListeners();
-                    console.log(`NotificationService: Suspend timer tick: ${minutes}m`);
-                };
-                const onComplete = () => {
-                    this.cancelSuspendTimer();
-
-                    if (connectionService.isConnected) {
-                        // If connected, suspend immediately
-                        connectionService.suspendServer();
-                    } else {
-                        // If disconnected, queue the suspend command
-                        this._queueSuspendCommand();
-                    }
-                };
-                this._suspendTimer = createDynamicTimer(onComplete, onTimerTick);
-                this._suspendTimer.start(this._suspendTimerIncrement);
-                this._updateSuspendNotificationActions();
+                // Add time or start the timer
+                this._timerManager.addTime();
             },
             'awake': () => {
                 console.log('NotificationService: Awake pressed');
@@ -286,11 +291,17 @@ export default class NotificationsService extends Service {
         const batteryState = this._stateRegistry.get<BatteryState>(TYPES.BatteryState);
         const isConnected = connectionService.isConnected;
 
-        const title = 'Server Status';
+        // Build the title with sleep timer info if active
         const conn = isConnected ? 'Connected' : 'Disconnected';
+        let title = `Server ${conn}`;
+
+        // Add sleep timer info to title if timer is running
+        if (this._suspendTimerTime > 0) {
+            title += ` | Sleep in ${this._suspendTimerTime}m`;
+        }
+
         const isCharging = batteryState.isCharging ? 'Charging' : 'Discharging';
-        // console.log('Battery Info:', batteryInfo);
-        const body = `Server ${conn}<br>Battery: ${batteryState.batteryLevel}% | ${isCharging}`;
+        const body = `Battery: ${batteryState.batteryLevel}% | ${isCharging}`;
 
         return displayNotification(title, body);
     }
@@ -307,7 +318,7 @@ export default class NotificationsService extends Service {
     }
 
     get suspendTimerRunning(): boolean {
-        return this._suspendTimer?.isTimerRunning() ?? false;
+        return this._timerManager?.isRunning() ?? false;
     }
 
     get suspendTimerMinutes(): number {
@@ -315,14 +326,9 @@ export default class NotificationsService extends Service {
     }
 
     cancelSuspendTimer(): void {
-        if (this._suspendTimer) {
-            this._suspendTimer.stop();
-            this._suspendTimer = null;
-            this._suspendTimerIncrement = this.DEFAULT_TIMER_INCREMENT;
-            this._suspendTimerIncrementTick = 0;
-            this._suspendTimerTime = 0;
-            this._updateSuspendNotificationActions();
-            this._notifyTimerStateListeners();
+        if (this._timerManager) {
+            this._timerManager.cancel();
+            this._timerManager = null;
         }
     }
 
