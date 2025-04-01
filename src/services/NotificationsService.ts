@@ -1,7 +1,7 @@
 import notifee, { AndroidImportance, AndroidVisibility, AuthorizationStatus, Event, EventType } from '@notifee/react-native';
 import Service from './Service.ts';
 import BatteryState from '../state/BatteryState.ts';
-import { observe, makeAutoObservable } from 'mobx';
+import { observe } from 'mobx';
 import ConnectionService from './ConnectionService.ts';
 import ForegroundService from './ForegroundService.ts';
 import { inject, singleton } from 'tsyringe';
