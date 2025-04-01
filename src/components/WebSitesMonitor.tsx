@@ -1,6 +1,6 @@
 import { Text, View } from 'react-native-ui-lib';
 import React, { useState } from 'react';
-import { ScrollView, StyleProp, StyleSheet, TouchableOpacity, Modal } from 'react-native';
+import { ScrollView, StyleProp, StyleSheet, TouchableOpacity, Modal, Linking } from 'react-native';
 import WebSiteMonitorState from '../state/WebSiteMonitorState';
 import { observer } from 'mobx-react-lite';
 
@@ -40,6 +40,14 @@ const WebSitesMonitor: React.FC<WebSitesMonitorProps> = observer(({ webSiteMonit
     const handleSitePress = (site: typeof webSiteMonitorState.sites[0]) => {
         setSelectedSite(site);
         setIsDialogVisible(true);
+    };
+
+    const handleUrlPress = async (url: string) => {
+        try {
+            await Linking.openURL(url);
+        } catch (error) {
+            console.error('Error opening URL:', error);
+        }
     };
 
     return (
@@ -90,7 +98,11 @@ const WebSitesMonitor: React.FC<WebSitesMonitorProps> = observer(({ webSiteMonit
 
                                     <View style={styles.dialogContent}>
                                         <Text style={styles.urlLabel}>URL:</Text>
-                                        <Text style={styles.urlText}>{selectedSite.url}</Text>
+                                        <TouchableOpacity onPress={() => handleUrlPress(selectedSite.url)}>
+                                            <Text style={[styles.urlText]}>
+                                                {selectedSite.url}
+                                            </Text>
+                                        </TouchableOpacity>
                                     </View>
 
                                     <TouchableOpacity

@@ -58,7 +58,7 @@ export default class ConnectionService extends Service {
     private readonly _timeoutValues = {
         default: 10000,
         quick: 500,
-        suspended: 30000
+        suspended: 30000,
     };
 
     /**

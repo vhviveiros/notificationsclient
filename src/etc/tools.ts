@@ -1,4 +1,4 @@
-import {IllegalValueError} from './errors.ts';
+import { IllegalValueError } from './errors.ts';
 
 /**
  * Custom assertion function to enforce conditions.
