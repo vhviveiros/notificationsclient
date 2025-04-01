@@ -1,7 +1,7 @@
 /**
  * ConnectionService manages WebSocket connections between the client and server.
  * It handles connection lifecycle, message passing, and server power management.
- * 
+ *
  * @remarks
  * This service is implemented as a singleton and extends the base Service class.
  * It uses MobX for state management and observability.

@@ -129,8 +129,8 @@ export class ClientWebSocket {
                 new Promise((resolve) => {
                     const listener = (message: WebSocketMessageEvent) => {
                         if (message.data === 'pong') {
-                            resolve('pong');
                             this._connection.removeEventListener('message', listener);
+                            resolve('pong');
                         }
                     };
                     this._connection.addEventListener('message', listener);

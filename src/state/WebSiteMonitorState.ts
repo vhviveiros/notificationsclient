@@ -2,6 +2,7 @@ import { action, makeObservable, observable } from 'mobx';
 import MobxBaseState from './MobxBaseState';
 import MobxState from './MobxState';
 import { TYPES } from '../../tsyringe.types';
+import { singleton } from 'tsyringe';
 
 /**
  * Represents a website being monitored
@@ -31,6 +32,7 @@ interface WebSiteMonitorStateData extends MobxBaseState {
  * @class WebSiteMonitorState
  * @implements MobxState
  */
+@singleton()
 export default class WebSiteMonitorState implements MobxState, WebSiteMonitorStateData {
     readonly identifier = TYPES.WebSiteMonitorState;
 

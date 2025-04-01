@@ -9,6 +9,7 @@ import { TYPES } from '../../tsyringe.types.ts';
 import { TypeSafeServiceRegistry, TypeSafeStateRegistry } from '../etc/typeSafeRegistry.ts';
 import { Linking } from 'react-native';
 import { TimerManager } from '../etc/TimerManager.ts';
+import WebSiteMonitorState from '../state/WebSiteMonitorState.ts';
 
 @singleton()
 export default class NotificationsService extends Service {
@@ -29,7 +30,8 @@ export default class NotificationsService extends Service {
     constructor(
         @inject(TYPES.BatteryState) batteryState: BatteryState,
         @inject(TYPES.ConnectionService) connectionService: ConnectionService,
-        @inject(TYPES.ForegroundService) foregroundService: ForegroundService
+        @inject(TYPES.ForegroundService) foregroundService: ForegroundService,
+        @inject(TYPES.WebSiteMonitorState) websiteMonitorState: WebSiteMonitorState
     ) {
         super(TYPES.NotificationsService);
         this._notificationActions = {
@@ -176,7 +178,7 @@ export default class NotificationsService extends Service {
     watchStateChanges() {
         const connectionService = this._serviceRegistry.get<ConnectionService>(TYPES.ConnectionService);
         const batteryState = this._stateRegistry.get<BatteryState>(TYPES.BatteryState);
-
+        const websiteMonitorState = this._stateRegistry.get<WebSiteMonitorState>(TYPES.WebSiteMonitorState);
         console.log('NotificationService: Watching state changes...');
         this.disposalCallbacks.push(
             observe(connectionService, 'isConnected', (change) => {
@@ -210,6 +212,22 @@ export default class NotificationsService extends Service {
                 }
             }, false)
         );
+
+        this.disposalCallbacks.push(observe(websiteMonitorState, 'sites', (change) => {
+            // Only process if we have both old and new values to compare
+            if (change.oldValue && change.newValue) {
+                // Compare each site in the new value with its old state
+                Object.entries(change.newValue).forEach(([url, newSite]) => {
+                    const oldSite = change.oldValue ? change.oldValue[url] : null;
+
+                    // Only notify if the site existed before and its state changed
+                    if (oldSite && oldSite.isUp !== newSite.isUp) {
+                        this.displayAlertNotification(`Website ${newSite.name} is ${newSite.isUp ? 'online' : 'offline'}.`);
+                    }
+                    // For new sites that didn't exist before, we could add a different notification here
+                });
+            }
+        }));
     }
 
     async displayAlertNotification(body: string) {
